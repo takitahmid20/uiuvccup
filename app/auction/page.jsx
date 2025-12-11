@@ -20,7 +20,7 @@ export default function Auction() {
   const [currentBids, setCurrentBids] = useState([]);
   const [highestBid, setHighestBid] = useState(0);
   const [highestBidder, setHighestBidder] = useState('');
-  const [auctionTimer, setAuctionTimer] = useState(30); // 30 seconds per player
+  const [auctionTimer, setAuctionTimer] = useState(59); // 59 seconds per player
   const [isAuctionActive, setIsAuctionActive] = useState(false);
   const [showAssignmentResult, setShowAssignmentResult] = useState(false);
   const [assignmentResult, setAssignmentResult] = useState(null);
@@ -68,7 +68,7 @@ export default function Auction() {
       return;
     }
     setIsAuctionActive(true);
-    setAuctionTimer(30);
+    setAuctionTimer(59);
     setCurrentBids([]);
     setHighestBid(0);
     setHighestBidder('');
@@ -99,18 +99,17 @@ export default function Auction() {
       await playersService.assignToTeam(currentPlayer.id, highestBidder);
       await playersService.update(currentPlayer.id, { soldPrice: highestBid });
       
-      // Update winning team's spent balance (ensure affordability with raiseSpent considered)
+      // Update winning team's spent balance only on assignment
       const winningTeam = teams.find(t => t.name === highestBidder);
       if (winningTeam) {
         const total = winningTeam.totalBalance ?? 500000;
-        const currentCommitted = (winningTeam.spent ?? 0) + (winningTeam.raiseSpent ?? 0);
+        const currentCommitted = (winningTeam.spent ?? 0);
         const remaining = total - currentCommitted;
         // Winner must be able to pay the winning bid at assignment time
         if (remaining < highestBid) {
           alert(`Winner cannot afford the winning bid. Remaining: ৳${remaining.toLocaleString()}, Needed: ৳${highestBid.toLocaleString()}`);
           return;
         }
-        // Add winning bid to spent; raise fees are tracked separately in raiseSpent
         const newSpent = (winningTeam.spent ?? 0) + highestBid;
         await teamsService.update(winningTeam.id, {
           totalBalance: winningTeam.totalBalance ?? 500000,
@@ -164,7 +163,7 @@ export default function Auction() {
     setHighestBidder('');
     setBidAmount('');
     setSelectedTeam('');
-    setAuctionTimer(30);
+    setAuctionTimer(59);
     setIsTimeExpired(false);
     
     // Don't increment currentPlayerIndex since we removed the current player from array
@@ -188,7 +187,6 @@ export default function Auction() {
         ...t,
         totalBalance: t.totalBalance ?? 500000,
         spent: t.spent ?? 0,
-        raiseSpent: t.raiseSpent ?? 0,
       })));
       setAllUnassignedPlayers(unassigned);
       // Initial category filter (shuffled for random order)
@@ -213,13 +211,10 @@ export default function Auction() {
   const requiredMinBid = highestBid > 0 ? (highestBid + 1) : basePrice;
   const selectedTeamObj = teams.find(t => t.name === selectedTeam);
   const selectedTeamTotal = selectedTeamObj?.totalBalance ?? 500000;
-  const selectedTeamSpent = (selectedTeamObj?.spent ?? 0) + (selectedTeamObj?.raiseSpent ?? 0);
+  const selectedTeamSpent = (selectedTeamObj?.spent ?? 0);
   const selectedTeamRemaining = selectedTeamTotal - selectedTeamSpent;
 
-  const getRaiseCharge = (team) => {
-    const committed = (team?.spent ?? 0) + (team?.raiseSpent ?? 0);
-    return committed < 20000 ? 2000 : 5000;
-  };
+  // Bids do not deduct funds. Deduction happens only when assignment is confirmed.
 
   const handlePlaceBid = async () => {
     if (!currentUser || !isAdmin) {
@@ -240,26 +235,7 @@ export default function Auction() {
       return;
     }
 
-    // First: charge raise fee immediately per team raise policy
-    const teamObj = teams.find(t => t.name === selectedTeam);
-    const raiseCharge = getRaiseCharge(teamObj);
-    if (selectedTeamRemaining < raiseCharge) {
-      alert(`Insufficient balance for raise fee of ৳${raiseCharge.toLocaleString()}. Remaining: ৳${selectedTeamRemaining.toLocaleString()}`);
-      return;
-    }
-
-    // Persist raise fee immediately to team's raiseSpent
-    try {
-      if (teamObj) {
-        const newRaiseSpent = (teamObj.raiseSpent ?? 0) + raiseCharge;
-        await teamsService.update(teamObj.id, { raiseSpent: newRaiseSpent, totalBalance: teamObj.totalBalance ?? 500000 });
-        setTeams(prev => prev.map(t => t.id === teamObj.id ? { ...t, raiseSpent: newRaiseSpent, totalBalance: t.totalBalance ?? 500000 } : t));
-      }
-    } catch (e) {
-      console.error('Failed to apply raise fee:', e);
-      alert('Failed to apply raise fee. Please try again.');
-      return;
-    }
+    // No funds are deducted on bid placement. Deduction occurs only upon assignment confirmation.
 
     // Add bid to current bids
     const newBid = {
@@ -281,7 +257,7 @@ export default function Auction() {
     
     // Extend timer by 5 seconds if less than 10 seconds left (but not if already expired)
     if (auctionTimer < 10 && auctionTimer > 0) {
-      setAuctionTimer(prev => Math.min(prev + 5, 30));
+      setAuctionTimer(prev => Math.min(prev + 5, 59));
     }
   };
 
@@ -627,8 +603,8 @@ export default function Auction() {
                         </div>
                       </div>
                       <div className="text-right text-xs">
-                        <div className="text-gray-300">Spent: <span className="text-white font-semibold">৳{(((team.spent ?? 0) + (team.raiseSpent ?? 0))).toLocaleString()}</span> / <span className="text-white font-semibold">৳{(team.totalBalance ?? 500000).toLocaleString()}</span></div>
-                        <div className="text-gray-400">Remaining: <span className="text-[#D0620D] font-bold">৳{(((team.totalBalance ?? 500000) - ((team.spent ?? 0) + (team.raiseSpent ?? 0)))).toLocaleString()}</span></div>
+                        <div className="text-gray-300">Spent: <span className="text-white font-semibold">৳{((team.spent ?? 0)).toLocaleString()}</span> / <span className="text-white font-semibold">৳{(team.totalBalance ?? 500000).toLocaleString()}</span></div>
+                        <div className="text-gray-400">Remaining: <span className="text-[#D0620D] font-bold">৳{(((team.totalBalance ?? 500000) - (team.spent ?? 0))).toLocaleString()}</span></div>
                         <div className="text-gray-500 mt-1">Players: {bidHistory.filter(bid => bid.team === team.name).length}</div>
                       </div>
                     </div>

@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: uiu-vc-cup
+    env: node
+    plan: free
+    region: oregon
+    autoDeploy: true
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: "18"
+      - key: NEXT_PUBLIC_FIREBASE_API_KEY
+        value: ""
+      - key: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+        value: ""
+      - key: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        value: ""
+      - key: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+        value: ""
+      - key: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+        value: ""
+      - key: NEXT_PUBLIC_FIREBASE_APP_ID
+        value: ""
