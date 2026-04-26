@@ -1,0 +1,736 @@
+'use client';
+import { useState, useEffect } from 'react';
+import { cricketTeamsService, cricketPlayersService } from '../../../../lib/firebaseService';
+import { useToast } from '../../../../lib/useToast';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { Button } from '../../../../components/ui/button';
+import { Badge } from '../../../../components/ui/badge';
+import { Input } from '../../../../components/ui/input';
+import { Label } from '../../../../components/ui/label';
+import { Separator } from '../../../../components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../../../components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../../../components/ui/table';
+import { UserCheck, Plus, Search, Trash2, Edit, Eye } from 'lucide-react';
+
+const CRICKET_POSITIONS = [
+  'Batsman',
+  'Bowler',
+  'All-Rounder',
+  'Wicket-Keeper',
+  'Wicket-Keeper Batsman',
+];
+
+export default function CricketPlayerManagement() {
+  const [players, setPlayers] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [filteredPlayers, setFilteredPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState(null);
+  const [viewingPlayer, setViewingPlayer] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [positionFilter, setPositionFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [showCsvModal, setShowCsvModal] = useState(false);
+  const [csvUploading, setCsvUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    filterPlayers();
+  }, [players, searchTerm, positionFilter, categoryFilter]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [playersData, teamsData] = await Promise.all([
+        cricketPlayersService.getAll(),
+        cricketTeamsService.getAll()
+      ]);
+      setPlayers(playersData);
+      setTeams(teamsData);
+    } catch (error) {
+      showToast('Failed to load data', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterPlayers = () => {
+    let filtered = players;
+    if (searchTerm) {
+      filtered = filtered.filter(p =>
+        p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.uniId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.department?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    if (positionFilter !== 'all') {
+      filtered = filtered.filter(p => p.position === positionFilter);
+    }
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(p => p.category === categoryFilter);
+    }
+    setFilteredPlayers(filtered);
+  };
+
+  const handleAddPlayer = async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    try {
+      await cricketPlayersService.create({
+        name: f.get('name'),
+        uniId: f.get('uniId'),
+        semester: f.get('semester') || '',
+        department: f.get('department') || '',
+        age: f.get('age') ? parseInt(f.get('age')) : null,
+        position: f.get('position'),
+        category: f.get('category') || '',
+        jerseyNumber: f.get('jerseyNumber') ? parseInt(f.get('jerseyNumber')) : null,
+        basePrice: f.get('basePrice') ? parseInt(f.get('basePrice')) : null,
+        phone: f.get('phone') || '',
+        email: f.get('email') || '',
+        battingStyle: f.get('battingStyle') || '',
+        bowlingStyle: f.get('bowlingStyle') || '',
+        team: null
+      });
+      showToast('Player added successfully', 'success');
+      setShowAddModal(false);
+      loadData();
+    } catch (error) {
+      showToast('Failed to add player', 'error');
+    }
+  };
+
+  const handleDeletePlayer = async (playerId) => {
+    if (!confirm('Are you sure you want to delete this player?')) return;
+    try {
+      await cricketPlayersService.delete(playerId);
+      showToast('Player deleted successfully', 'success');
+      loadData();
+    } catch (error) {
+      showToast('Failed to delete player', 'error');
+    }
+  };
+
+  const handleAssignPlayer = async (playerId, teamName) => {
+    try {
+      await cricketPlayersService.assignToTeam(playerId, teamName || null);
+      showToast('Player assigned successfully', 'success');
+      loadData();
+    } catch (error) {
+      showToast('Failed to assign player', 'error');
+    }
+  };
+
+  // CSV file processing function for players
+  const processCsvFile = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const csv = e.target.result;
+          const lines = csv.split('\n');
+          const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+          
+          // Expected headers: name, uniId, position (optional: semester, department, age, phone, email, team, category, jerseyNumber, basePrice, battingStyle, bowlingStyle)
+          const requiredHeaders = ['name', 'uniid'];
+          const missing = requiredHeaders.filter(h => !headers.includes(h));
+          if (missing.length > 0) {
+            throw new Error(`Missing required columns: ${missing.join(', ')}`);
+          }
+          
+          const out = [];
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const values = lines[i].split(',');
+            const row = {};
+            headers.forEach((h, idx) => row[h] = values[idx] ? values[idx].trim() : '');
+            out.push({
+              name: row.name,
+              uniId: row.uniid,
+              semester: row.semester || '',
+              department: row.department || '',
+              age: row.age ? parseInt(row.age) : null,
+              position: row.position || 'Batsman',
+              category: row.category || '',
+              jerseyNumber: row.jerseynumber ? parseInt(row.jerseynumber) : null,
+              basePrice: row.baseprice ? parseInt(row.baseprice) : null,
+              phone: row.phone || '',
+              email: row.email || '',
+              battingStyle: row.battingstyle || '',
+              bowlingStyle: row.bowlingstyle || '',
+              team: row.team || null
+            });
+          }
+          resolve(out);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsText(file);
+    });
+  };
+
+  // Handle CSV upload and bulk player creation
+  const handleCsvUpload = async (file) => {
+    try {
+      setCsvUploading(true);
+      
+      // Validate file type
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        showToast('Please upload a CSV file (.csv)', 'warning');
+        return;
+      }
+      
+      // Process CSV file
+      const playersData = await processCsvFile(file);
+      
+      if (playersData.length === 0) {
+        showToast('No valid players found in the CSV file.', 'warning');
+        return;
+      }
+      
+      // Create players in Firebase
+      const createdPlayers = [];
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const playerData of playersData) {
+        try {
+          const playerId = await cricketPlayersService.create(playerData);
+          createdPlayers.push({ id: playerId, ...playerData });
+          successCount++;
+        } catch (err) {
+          console.error('Error creating player:', playerData.name, err);
+          errorCount++;
+        }
+      }
+      
+      showToast(`CSV Upload Complete! Created: ${successCount} players. Failed: ${errorCount}`, 'success');
+      
+      // Update local state
+      setPlayers(prevPlayers => [...prevPlayers, ...createdPlayers]);
+      setFilteredPlayers(prevPlayers => [...prevPlayers, ...createdPlayers]);
+      setShowCsvModal(false);
+      
+    } catch (error) {
+      showToast(`Error processing CSV file: ${error.message}`, 'error');
+    } finally {
+      setCsvUploading(false);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!csvUploading) {
+      setDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    
+    if (csvUploading) return;
+    
+    const files = Array.from(e.dataTransfer.files);
+    const csvFile = files.find(file => file.name.toLowerCase().endsWith('.csv'));
+    
+    if (csvFile) {
+      handleCsvUpload(csvFile);
+    } else {
+      showToast('Please drop a CSV file (.csv)', 'warning');
+    }
+  };
+
+  const handleEditPlayer = async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    try {
+      await cricketPlayersService.update(editingPlayer.id, {
+        name: f.get('name'),
+        uniId: f.get('uniId'),
+        semester: f.get('semester') || '',
+        department: f.get('department') || '',
+        age: f.get('age') ? parseInt(f.get('age')) : null,
+        position: f.get('position'),
+        category: f.get('category') || '',
+        jerseyNumber: f.get('jerseyNumber') ? parseInt(f.get('jerseyNumber')) : null,
+        basePrice: f.get('basePrice') ? parseInt(f.get('basePrice')) : null,
+        soldPrice: f.get('soldPrice') ? parseInt(f.get('soldPrice')) : null,
+        phone: f.get('phone') || '',
+        email: f.get('email') || '',
+        battingStyle: f.get('battingStyle') || '',
+        bowlingStyle: f.get('bowlingStyle') || '',
+        team: f.get('team') || null
+      });
+      showToast('Player updated successfully', 'success');
+      setEditingPlayer(null);
+      loadData();
+    } catch (error) {
+      showToast('Failed to update player', 'error');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <UserCheck className="w-6 h-6 text-primary" />
+            Cricket Player Management
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">Register and manage cricket players</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowCsvModal(true)} disabled={csvUploading}>
+            📄 Upload CSV
+          </Button>
+          <Button onClick={() => setShowAddModal(true)} disabled={csvUploading}>
+            <Plus className="w-4 h-4" />
+            Add Player
+          </Button>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-1 md:col-span-2">
+              <Label>Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="Name, ID, department..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Position</Label>
+              <select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <option value="all">All Positions</option>
+                {CRICKET_POSITIONS.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label>Category</Label>
+              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <option value="all">All</option>
+                <option value="A">Category A</option>
+                <option value="B">Category B</option>
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Players table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Player</TableHead>
+                <TableHead>Position</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Details</TableHead>
+                <TableHead>Team</TableHead>
+                <TableHead>Assign</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                    Loading players...
+                  </TableCell>
+                </TableRow>
+              ) : filteredPlayers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                      <span className="text-5xl">🏏</span>
+                      <p className="font-medium">No cricket players registered yet</p>
+                      <p className="text-sm">Add players manually or upload a CSV file</p>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setShowCsvModal(true)}>📄 Upload CSV</Button>
+                        <Button size="sm" onClick={() => setShowAddModal(true)}>
+                          <Plus className="w-4 h-4" />
+                          Add Player
+                        </Button>
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredPlayers.map((player) => (
+                  <TableRow key={player.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full overflow-hidden bg-muted border flex items-center justify-center shrink-0">
+                          <img src={`https://dsa.uiu.ac.bd/loan/api/photo/${encodeURIComponent(player.uniId || '')}`} alt={player.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">{player.name}</div>
+                          <div className="text-xs text-muted-foreground">{player.uniId} · {player.semester}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{player.position}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">Cat {player.category || '—'}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <div className="text-muted-foreground">{player.department} · Age {player.age}</div>
+                      <div className="text-xs text-muted-foreground">{player.phone}</div>
+                    </TableCell>
+                    <TableCell>
+                      {player.team ? (
+                        <Badge className="bg-green-100 text-green-800">{player.team}</Badge>
+                      ) : (
+                        <Badge variant="secondary">Unassigned</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <select value={player.team || ''} onChange={(e) => handleAssignPlayer(player.id, e.target.value)} className="px-2 py-1 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                          <option value="">Unassigned</option>
+                          {teams.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                        </select>
+                        {player.soldPrice ? <span className="text-xs text-green-600">৳{Number(player.soldPrice).toLocaleString()}</span> : null}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon-sm" onClick={() => setViewingPlayer(player)} title="View">
+                          <Eye className="w-4 h-4 text-blue-500" />
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" onClick={() => setEditingPlayer(player)} title="Edit">
+                          <Edit className="w-4 h-4 text-primary" />
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" onClick={() => handleDeletePlayer(player.id)} title="Delete">
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Add Player Dialog */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Cricket Player</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddPlayer}>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1"><Label>Full Name</Label><Input name="name" required /></div>
+              <div className="space-y-1"><Label>University ID</Label><Input name="uniId" required /></div>
+              <div className="space-y-1"><Label>Semester</Label>
+                <select name="semester" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <option value="">Select Semester</option>
+                  {[1,2,3,4,5,6,7,8,9,10,11,12].map(s => (
+                    <option key={s} value={`${s}${s===1?'st':s===2?'nd':s===3?'rd':'th'}`}>
+                      {s}{s===1?'st':s===2?'nd':s===3?'rd':'th'} Semester
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1"><Label>Department</Label>
+                <select name="department" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <option value="">Select Department</option>
+                  <option value="CSE">Computer Science &amp; Engineering</option>
+                  <option value="EEE">Electrical &amp; Electronic Engineering</option>
+                  <option value="BBA">Business Administration</option>
+                  <option value="Civil">Civil Engineering</option>
+                  <option value="English">English</option>
+                  <option value="Economics">Economics</option>
+                </select>
+              </div>
+              <div className="space-y-1"><Label>Age</Label><Input type="number" name="age" min="18" max="35" /></div>
+              <div className="space-y-1"><Label>Jersey Number</Label><Input type="number" name="jerseyNumber" min="1" max="99" /></div>
+              <div className="space-y-1"><Label>Playing Position</Label>
+                <select name="position" required className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <option value="">Select Position</option>
+                  {CRICKET_POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1"><Label>Performance Category</Label>
+                <select name="category" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <option value="">Select Category</option>
+                  <option value="A">Category A</option>
+                  <option value="B">Category B</option>
+                </select>
+              </div>
+              <div className="space-y-1"><Label>Base Price (৳)</Label><Input type="number" name="basePrice" min="0" placeholder="e.g. 5000" /></div>
+              <div className="space-y-1"><Label>Phone</Label><Input type="tel" name="phone" /></div>
+              <div className="space-y-1"><Label>Email</Label><Input type="email" name="email" /></div>
+              <div className="space-y-1"><Label>Batting Style</Label>
+                <select name="battingStyle" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <option value="">Select</option>
+                  <option value="Right-handed">Right-handed</option>
+                  <option value="Left-handed">Left-handed</option>
+                </select>
+              </div>
+              <div className="space-y-1"><Label>Bowling Style</Label>
+                <select name="bowlingStyle" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <option value="">Select / N/A</option>
+                  <option value="Right-arm Fast">Right-arm Fast</option>
+                  <option value="Right-arm Medium">Right-arm Medium</option>
+                  <option value="Right-arm Spin">Right-arm Spin</option>
+                  <option value="Left-arm Fast">Left-arm Fast</option>
+                  <option value="Left-arm Medium">Left-arm Medium</option>
+                  <option value="Left-arm Spin">Left-arm Spin</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>
+              <Button type="submit">Add Player</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Player Dialog */}
+      <Dialog open={!!editingPlayer} onOpenChange={(o) => !o && setEditingPlayer(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Edit Player</DialogTitle></DialogHeader>
+          {editingPlayer && (
+            <form onSubmit={handleEditPlayer}>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1"><Label>Full Name</Label><Input name="name" defaultValue={editingPlayer.name} required /></div>
+                <div className="space-y-1"><Label>University ID</Label><Input name="uniId" defaultValue={editingPlayer.uniId} required /></div>
+                <div className="space-y-1"><Label>Semester</Label>
+                  <select name="semester" defaultValue={editingPlayer.semester} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                    <option value="">Select Semester</option>
+                    {[1,2,3,4,5,6,7,8,9,10,11,12].map(s => <option key={s} value={`${s}${s===1?'st':s===2?'nd':s===3?'rd':'th'}`}>{s}{s===1?'st':s===2?'nd':s===3?'rd':'th'} Semester</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1"><Label>Department</Label><Input name="department" defaultValue={editingPlayer.department} /></div>
+                <div className="space-y-1"><Label>Age</Label><Input type="number" name="age" defaultValue={editingPlayer.age} min="18" max="35" /></div>
+                <div className="space-y-1"><Label>Jersey Number</Label><Input type="number" name="jerseyNumber" defaultValue={editingPlayer.jerseyNumber || ''} min="1" max="99" /></div>
+                <div className="space-y-1"><Label>Position</Label>
+                  <select name="position" defaultValue={editingPlayer.position} required className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                    <option value="">Select Position</option>
+                    {CRICKET_POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1"><Label>Category</Label>
+                  <select name="category" defaultValue={editingPlayer.category || ''} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                    <option value="">Select Category</option>
+                    <option value="A">Category A</option>
+                    <option value="B">Category B</option>
+                  </select>
+                </div>
+                <div className="space-y-1"><Label>Base Price (৳)</Label><Input type="number" name="basePrice" defaultValue={editingPlayer.basePrice || ''} min="0" /></div>
+                <div className="space-y-1">
+                  <Label>Sold Price (৳)</Label>
+                  <Input type="number" name="soldPrice" defaultValue={editingPlayer.soldPrice || ''} min="0" placeholder="Auction sale price" />
+                  <p className="text-xs text-muted-foreground">Price paid in auction (if sold)</p>
+                </div>
+                <div className="space-y-1"><Label>Phone</Label><Input type="tel" name="phone" defaultValue={editingPlayer.phone || ''} /></div>
+                <div className="space-y-1"><Label>Email</Label><Input type="email" name="email" defaultValue={editingPlayer.email || ''} /></div>
+                <div className="space-y-1"><Label>Batting Style</Label>
+                  <select name="battingStyle" defaultValue={editingPlayer.battingStyle || ''} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                    <option value="">Select</option>
+                    <option value="Right-handed">Right-handed</option>
+                    <option value="Left-handed">Left-handed</option>
+                  </select>
+                </div>
+                <div className="space-y-1"><Label>Bowling Style</Label>
+                  <select name="bowlingStyle" defaultValue={editingPlayer.bowlingStyle || ''} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                    <option value="">Select / N/A</option>
+                    <option value="Right-arm Fast">Right-arm Fast</option>
+                    <option value="Right-arm Medium">Right-arm Medium</option>
+                    <option value="Right-arm Spin">Right-arm Spin</option>
+                    <option value="Left-arm Fast">Left-arm Fast</option>
+                    <option value="Left-arm Medium">Left-arm Medium</option>
+                    <option value="Left-arm Spin">Left-arm Spin</option>
+                  </select>
+                </div>
+                <div className="col-span-2 space-y-1"><Label>Assign to Team</Label>
+                  <select name="team" defaultValue={editingPlayer.team || ''} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                    <option value="">Unassigned</option>
+                    {teams.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingPlayer(null)}>Cancel</Button>
+                <Button type="submit">Update Player</Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Player Dialog */}
+      <Dialog open={!!viewingPlayer} onOpenChange={(o) => !o && setViewingPlayer(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Player Details</DialogTitle></DialogHeader>
+          {viewingPlayer && (
+            <div className="space-y-2 text-sm">
+              {Object.entries({
+                'Name': viewingPlayer.name,
+                'University ID': viewingPlayer.uniId,
+                'Department': viewingPlayer.department,
+                'Semester': viewingPlayer.semester,
+                'Age': viewingPlayer.age,
+                'Position': viewingPlayer.position,
+                'Category': viewingPlayer.category,
+                'Jersey Number': viewingPlayer.jerseyNumber,
+                'Base Price': viewingPlayer.basePrice ? `৳${viewingPlayer.basePrice.toLocaleString()}` : '—',
+                'Sold Price': viewingPlayer.soldPrice ? `৳${viewingPlayer.soldPrice.toLocaleString()}` : '—',
+                'Phone': viewingPlayer.phone || '—',
+                'Email': viewingPlayer.email || '—',
+                'Batting Style': viewingPlayer.battingStyle || '—',
+                'Bowling Style': viewingPlayer.bowlingStyle || '—',
+                'Team': viewingPlayer.team || 'Unassigned'
+              }).map(([k, v]) => (
+                <div key={k} className="flex justify-between py-1 border-b border-border last:border-0">
+                  <span className="font-medium text-muted-foreground">{k}</span>
+                  <span>{v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-4 flex justify-end">
+            <Button variant="outline" onClick={() => setViewingPlayer(null)}>Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Upload Modal */}
+      <Dialog open={showCsvModal} onOpenChange={setShowCsvModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Upload Players via CSV</DialogTitle></DialogHeader>
+          <div>
+            <div className="mb-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h4 className="font-medium text-blue-900 mb-2">📋 CSV Format Requirements:</h4>
+                <div className="text-sm text-blue-800 space-y-1">
+                  <p><strong>Required columns:</strong> name, uniId</p>
+                  <p><strong>Optional columns:</strong> semester, department, age, position, category, jerseyNumber, basePrice, phone, email, battingStyle, bowlingStyle, team</p>
+                  <p><strong>Example:</strong></p>
+                  <div className="bg-white border rounded p-2 mt-2 font-mono text-xs">
+                    name,uniId,semester,department,position,category<br/>
+                    John Doe,011221001,5th,CSE,Batsman,A<br/>
+                    Jane Smith,011221002,7th,EEE,Bowler,B
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
+                  dragOver
+                    ? 'border-[#D0620D] bg-orange-50'
+                    : 'border-gray-300 hover:border-gray-400'
+                } ${csvUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      handleCsvUpload(file);
+                    }
+                  }}
+                  className="hidden"
+                  id="csv-upload"
+                  disabled={csvUploading}
+                />
+                <label
+                  htmlFor="csv-upload"
+                  className={`cursor-pointer block ${csvUploading ? 'cursor-not-allowed' : ''}`}
+                >
+                  <div className="space-y-2">
+                    <div className={`text-4xl transition-transform duration-200 ${dragOver ? 'scale-110' : ''}`}>
+                      {dragOver ? '📥' : '📄'}
+                    </div>
+                    <div className="text-lg font-medium text-gray-900">
+                      {csvUploading
+                        ? 'Processing CSV...'
+                        : dragOver
+                          ? 'Drop CSV file here'
+                          : 'Click to upload or drag & drop CSV file'
+                      }
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {csvUploading
+                        ? 'Please wait while we create your players'
+                        : dragOver
+                          ? 'Release to upload the file'
+                          : 'Select a CSV file with player data or drag it here'
+                      }
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {csvUploading && (
+                <div className="mt-4 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#D0620D] mr-2"></div>
+                  <span className="text-gray-600">Creating players in Firebase...</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button type="button" variant="outline" onClick={() => setShowCsvModal(false)} disabled={csvUploading}>
+                {csvUploading ? 'Processing...' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

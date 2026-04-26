@@ -5,6 +5,14 @@ import { useState, useEffect } from 'react';
 import { teamsService, playersService } from '../../lib/firebaseService';
 import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../../components/Navbar';
+import { logger } from '../../lib/logger';
+import { useToast } from '../../lib/useToast';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Select } from '../../components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Separator } from '../../components/ui/separator';
 
 export default function Auction() {
   const { currentUser, isAdmin } = useAuth();
@@ -25,6 +33,7 @@ export default function Auction() {
   const [showAssignmentResult, setShowAssignmentResult] = useState(false);
   const [assignmentResult, setAssignmentResult] = useState(null);
   const [isTimeExpired, setIsTimeExpired] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     loadAuctionData();
@@ -64,7 +73,7 @@ export default function Auction() {
   // Start auction for current player
   const startAuction = () => {
     if (!currentUser || !isAdmin) {
-      alert('Only administrators can start the auction. Please log in as admin.');
+      showToast('Only administrators can start the auction. Please log in as admin.', 'error');
       return;
     }
     setIsAuctionActive(true);
@@ -107,7 +116,7 @@ export default function Auction() {
         const remaining = total - currentCommitted;
         // Winner must be able to pay the winning bid at assignment time
         if (remaining < highestBid) {
-          alert(`Winner cannot afford the winning bid. Remaining: ৳${remaining.toLocaleString()}, Needed: ৳${highestBid.toLocaleString()}`);
+          showToast(`Winner cannot afford the winning bid. Remaining: ৳${remaining.toLocaleString()}, Needed: ৳${highestBid.toLocaleString()}`, 'error');
           return;
         }
         const newSpent = (winningTeam.spent ?? 0) + highestBid;
@@ -146,8 +155,8 @@ export default function Auction() {
       }, 3000);
       
     } catch (error) {
-      console.error('Error assigning player:', error);
-      alert('Failed to assign player. Please try again.');
+      logger.error('Error assigning player:', error);
+      showToast('Failed to assign player. Please try again.', 'error');
     }
   };
 
@@ -193,7 +202,7 @@ export default function Auction() {
       const initial = unassigned.filter(p => p.category === selectedCategory);
       setUnassignedPlayers(shuffle(initial));
     } catch (error) {
-      console.error('Error loading auction data:', error);
+      logger.error('Error loading auction data:', error);
     } finally {
       setLoading(false);
     }
@@ -218,7 +227,7 @@ export default function Auction() {
 
   const handlePlaceBid = async () => {
     if (!currentUser || !isAdmin) {
-      alert('Only administrators can place bids. Please log in as admin.');
+      showToast('Only administrators can place bids. Please log in as admin.', 'error');
       return;
     }
     if (!bidAmount || !selectedTeam || !currentPlayer || !isAuctionActive) return;
@@ -227,11 +236,11 @@ export default function Auction() {
     // Enforce: if highest exists, next bid must be greater than highest; else >= base price
     if (highestBid > 0) {
       if (bidAmountNum <= highestBid) {
-        alert(`Bid must be greater than current highest bid of ৳${highestBid.toLocaleString()}`);
+        showToast(`Bid must be greater than current highest bid of ৳${highestBid.toLocaleString()}`, 'warning');
         return;
       }
     } else if (bidAmountNum < basePrice) {
-      alert(`Bid must be at least the base price ৳${basePrice.toLocaleString()}`);
+      showToast(`Bid must be at least the base price ৳${basePrice.toLocaleString()}`, 'warning');
       return;
     }
 
@@ -289,21 +298,16 @@ export default function Auction() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Admin Category Selector */}
           {isAdmin && (
-            <div className="mb-6 flex items-center justify-center">
-              <div className="inline-flex rounded-lg overflow-hidden border border-gray-700">
-                <button
-                  onClick={() => setSelectedCategory('A')}
-                  className={`px-4 py-2 text-sm font-medium ${selectedCategory === 'A' ? 'bg-[#D0620D] text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            <div className="mb-6 flex items-center justify-center gap-2">
+              {['A', 'B'].map(cat => (
+                <Button
+                  key={cat}
+                  variant={selectedCategory === cat ? 'default' : 'outline'}
+                  onClick={() => setSelectedCategory(cat)}
                 >
-                  Category A
-                </button>
-                <button
-                  onClick={() => setSelectedCategory('B')}
-                  className={`px-4 py-2 text-sm font-medium border-l border-gray-700 ${selectedCategory === 'B' ? 'bg-[#D0620D] text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
-                >
-                  Category B
-                </button>
-              </div>
+                  Category {cat}
+                </Button>
+              ))}
             </div>
           )}
           {loading ? (
@@ -440,31 +444,31 @@ export default function Auction() {
 
                       <div className="space-y-4">
                         {!isAuctionActive ? (
-                          <button 
+                          <Button 
                             onClick={startAuction}
-                            className="w-full bg-green-600 text-white px-6 py-4 rounded-lg font-semibold hover:bg-green-700 transition-colors text-lg"
+                            className="w-full"
                           >
-                            {!currentUser || !isAdmin ? 'Admin access required to start auction' : `Start Auction for ${currentPlayer.name}`}
-                          </button>
+                            Start Auction
+                          </Button>
                         ) : (
-                          <>
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-sm text-gray-300">
+                              <span>Auction Active</span>
+                            </div>
                             {/* Team Selection */}
                             <div className="space-y-2">
                               <label className="text-gray-300 text-sm font-medium">Select Team</label>
                               <div className="grid grid-cols-2 gap-2">
                                 {teams.map((team) => (
-                                  <button
+                                  <Button
                                     key={team.id}
+                                    variant={selectedTeam === team.name ? 'default' : 'outline'}
                                     onClick={() => (currentUser && isAdmin) && setSelectedTeam(team.name)}
                                     disabled={!currentUser || !isAdmin}
-                                    className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
-                                      selectedTeam === team.name && currentUser && isAdmin
-                                        ? 'border-[#D0620D] bg-[#D0620D] text-white'
-                                        : 'border-gray-600 text-gray-300 ' + (currentUser && isAdmin ? 'hover:border-gray-500' : 'opacity-50 cursor-not-allowed')
-                                    }`}
+                                    className="justify-start"
                                   >
                                     {team.name}
-                                  </button>
+                                  </Button>
                                 ))}
                               </div>
                             </div>
@@ -474,23 +478,21 @@ export default function Auction() {
                               <label className="text-gray-300 text-sm font-medium">Enter Bid Amount</label>
                               <div className="flex gap-3">
                                 <div className="flex-1">
-                                  <input 
-                                    type="number" 
-                                    placeholder={`Minimum: ${highestBid > 0 ? `> ৳${highestBid.toLocaleString()}` : `৳${basePrice.toLocaleString()}`}`}
+                                  <Input
+                                    type="number"
                                     value={bidAmount}
                                     onChange={(e) => setBidAmount(e.target.value)}
-                                    min={highestBid > 0 ? highestBid + 1 : basePrice}
-                                    disabled={!currentUser || !isAdmin}
-                                    className={`w-full px-4 py-3 rounded-lg bg-gray-800 border text-white placeholder-gray-400 focus:border-[#D0620D] focus:outline-none ${!currentUser || !isAdmin ? 'border-gray-700 opacity-50 cursor-not-allowed' : 'border-gray-600'}`}
+                                    placeholder={isAuctionActive ? `Min: ৳${requiredMinBid.toLocaleString()}` : 'Start auction to place bids'}
+                                    disabled={!currentUser || !isAdmin || !isAuctionActive || !currentPlayer}
                                   />
                                 </div>
-                                <button 
+                                <Button 
                                   onClick={handlePlaceBid}
                                   disabled={!currentUser || !isAdmin || !bidAmount || !selectedTeam || parseInt(bidAmount) < (highestBid > 0 ? highestBid + 1 : basePrice)}
-                                  className="bg-[#D0620D] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#B8540B] transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+                                  className="w-full"
                                 >
                                   Place Bid
-                                </button>
+                                </Button>
                               </div>
                               <p className="text-gray-400 text-xs">
                                 {highestBid > 0 
@@ -503,28 +505,29 @@ export default function Auction() {
                                 </div>
                               )}
                             </div>
-                          </>
+                          </div>
                         )}
                         
                         <div className="flex gap-3">
                           {/* Confirm Assignment Button - Only when there are bids */}
                           {isAuctionActive && highestBid > 0 && (
-                            <button 
+                            <Button 
                               onClick={confirmPlayerAssignment}
                               disabled={!currentUser || !isAdmin}
-                              className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="flex-1"
                             >
-                              {isTimeExpired ? '⏰ Confirm Assignment' : 'Confirm Assignment'}
-                            </button>
+                              Confirm Assignment
+                            </Button>
                           )}
                           
-                          <button 
+                          <Button 
+                            variant="outline"
                             onClick={skipPlayer}
                             disabled={isAuctionActive && !isTimeExpired}
-                            className="border border-gray-600 text-gray-300 px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1"
                           >
-                            Skip Player
-                          </button>
+                            {isAuctionActive ? 'Skip (Time expired)' : 'Skip Player'}
+                          </Button>
                         </div>
                       </div>
                     </div>

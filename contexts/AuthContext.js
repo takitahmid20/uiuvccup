@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { userService } from '../lib/firebaseService';
+import { logger } from '../lib/logger';
 
 // Admin email allowlist - hardcoded admin accounts
 const ADMIN_EMAILS = [
@@ -33,17 +34,17 @@ export function AuthProvider({ children }) {
   // Login function - handles both admin (Firebase Auth) and team owners (Firestore)
   const login = async (email, password) => {
     try {
-      console.log('🔐 AuthContext: Attempting login for:', email);
+      logger.log('🔐 AuthContext: Attempting login for:', email);
       
       // Check if it's admin login (Firebase Auth)
       if (email === 'uiuvccup@gmail.com') {
-        console.log('👑 AuthContext: Admin login via Firebase Auth');
+        logger.log('👑 AuthContext: Admin login via Firebase Auth');
         const result = await signInWithEmailAndPassword(auth, email, password);
-        console.log('✅ AuthContext: Firebase admin login successful');
+        logger.log('✅ AuthContext: Firebase admin login successful');
         return result;
       } else {
         // Team owner login - check Firestore database
-        console.log('👤 AuthContext: Team owner login via Firestore');
+        logger.log('👤 AuthContext: Team owner login via Firestore');
         const userData = await userService.loginTeamOwner(email, password);
         
         if (userData) {
@@ -53,7 +54,7 @@ export function AuthProvider({ children }) {
           setUserTeam(userData.teamName);
           setLoading(false);
           
-          console.log('✅ AuthContext: Team owner login successful', {
+          logger.log('✅ AuthContext: Team owner login successful', {
             email: userData.email,
             team: userData.teamName
           });
@@ -64,7 +65,7 @@ export function AuthProvider({ children }) {
         }
       }
     } catch (error) {
-      console.error('❌ AuthContext: Login error:', error);
+      logger.error('❌ AuthContext: Login error:', error);
       throw error;
     }
   };
@@ -84,32 +85,32 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    console.log('🔧 AuthContext: Setting up auth listener');
+    logger.log('🔧 AuthContext: Setting up auth listener');
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('🔥 AuthContext: Auth state changed', {
+      logger.log('🔥 AuthContext: Auth state changed', {
         user: user ? { uid: user.uid, email: user.email } : null,
         timestamp: new Date().toISOString()
       });
       
       if (user) {
-        console.log('👤 AuthContext: Firebase Auth user found (Admin only)');
+        logger.log('👤 AuthContext: Firebase Auth user found (Admin only)');
         setCurrentUser(user);
         
         // Only admin should be in Firebase Auth
         if (user.email === 'uiuvccup@gmail.com') {
-          console.log('👑 AuthContext: Admin detected:', user.email);
+          logger.log('👑 AuthContext: Admin detected:', user.email);
           setUserRole('admin');
           setUserTeam(null);
           setLoading(false);
-          console.log('🏁 AuthContext: Admin loading complete');
+          logger.log('🏁 AuthContext: Admin loading complete');
         } else {
-          console.log('❌ AuthContext: Unknown Firebase Auth user:', user.email);
+          logger.log('❌ AuthContext: Unknown Firebase Auth user:', user.email);
           setUserRole(null);
           setUserTeam(null);
           setLoading(false);
         }
       } else {
-        console.log('🚫 AuthContext: No user, clearing all state');
+        logger.log('🚫 AuthContext: No user, clearing all state');
         setCurrentUser(null);
         setUserRole(null);
         setUserTeam(null);

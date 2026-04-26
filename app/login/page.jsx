@@ -23,7 +23,7 @@ export default function Login() {
       });
       
       if (isAdmin) {
-        router.push('/dashboard/team');
+        router.push('/dashboard');
       } else if (isTeamOwner) {
         router.push('/team-dashboard');
       } else {
@@ -43,7 +43,7 @@ export default function Login() {
       // Wait a moment for auth context to update, then redirect based on role
       setTimeout(() => {
         if (email === 'uiuvccup@gmail.com') {
-          router.push('/dashboard/team');
+          router.push('/dashboard');
         } else {
           router.push('/team-dashboard');
         }

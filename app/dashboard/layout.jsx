@@ -1,14 +1,20 @@
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useState } from 'react';
+import { cn } from '../../lib/utils';
+
+const topTabs = [
+  { label: '🏠 Dashboard', href: '/dashboard', match: (p) => p === '/dashboard' },
+];
 
 export default function DashboardLayout({ children }) {
   const { logout, currentUser } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -21,158 +27,132 @@ export default function DashboardLayout({ children }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0D13]">
-      {/* Navigation */}
-      <nav className="bg-white shadow-lg">
+    <div className="min-h-screen bg-gray-50">
+      {/* Top navigation bar */}
+      <nav className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Image
-                  src="/assets/uiuvccuplogo.png"
-                  alt="UIU VC Cup Logo"
-                  width={40}
-                  height={40}
-                  className="rounded-full"
-                />
-              </div>
-              <div className="hidden md:block ml-3">
-                <span className="text-lg font-bold text-black">
-                  UIU VC Cup - Admin
-                </span>
-              </div>
+          <div className="flex items-center justify-between h-14">
+
+            {/* Logo + title */}
+            <div className="flex items-center gap-3">
+              <Image
+                src="/assets/uiuvccuplogo.png"
+                alt="UIU VC Cup Logo"
+                width={36}
+                height={36}
+                className="rounded-full"
+              />
+              <span className="font-bold text-gray-900 text-sm sm:text-base leading-tight">
+                UIU VC Cup
+                <span className="block text-[10px] font-normal text-gray-400 leading-none">Admin Panel</span>
+              </span>
             </div>
 
-            {/* Desktop menu */}
-            <div className="hidden md:ml-6 md:flex md:items-center space-x-4">
-              <span className="text-gray-600 text-sm">
-                {currentUser?.email}
-              </span>
-              <Link 
-                href="/" 
-                className="text-gray-700 hover:text-[#D0620D] font-medium text-sm transition-colors"
+            {/* Desktop right-side actions */}
+            <div className="hidden md:flex items-center gap-4">
+              <span className="text-gray-500 text-xs truncate max-w-[180px]">{currentUser?.email}</span>
+              <Link
+                href="/"
+                className="text-sm text-gray-600 hover:text-[#D0620D] font-medium transition-colors"
               >
-                Back to Site
+                ← Back to Site
               </Link>
               <button
                 onClick={handleLogout}
-                className="bg-[#D0620D] px-4 py-2 rounded-lg text-white text-sm font-medium hover:bg-[#B8540B] transition-colors"
+                className="bg-[#D0620D] px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:bg-[#B8540B] transition-colors"
               >
                 Logout
               </button>
             </div>
 
-            {/* Mobile menu button */}
-            <div className="md:hidden flex items-center">
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-[#D0620D] focus:outline-none"
-                aria-expanded="false"
-              >
-                <span className="sr-only">Open main menu</span>
-                <svg
-                  className={`${mobileMenuOpen ? 'hidden' : 'block'} h-6 w-6`}
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-                <svg
-                  className={`${mobileMenuOpen ? 'block' : 'hidden'} h-6 w-6`}
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-md text-gray-600 hover:text-[#D0620D] hover:bg-gray-100 transition-colors"
+            >
+              {mobileMenuOpen ? (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </button>
-            </div>
+              ) : (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile dropdown menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50">
-              <div className="px-3 py-2 text-sm text-gray-700">
-                {currentUser?.email}
+          <div className="md:hidden border-t border-gray-100 bg-white">
+            <div className="px-4 py-3 space-y-1">
+              <p className="text-xs text-gray-400 pb-1">{currentUser?.email}</p>
+              {[
+                { label: '🏠 Dashboard Home', href: '/dashboard' },
+                { label: '⚽ Football – Teams', href: '/dashboard/football/team' },
+                { label: '⚽ Football – Players', href: '/dashboard/football/player' },
+                { label: '⚽ Football – Auction', href: '/auction' },
+                { label: '🏏 Cricket – Teams', href: '/dashboard/cricket/team' },
+                { label: '🏏 Cricket – Players', href: '/dashboard/cricket/player' },
+                { label: '🏏 Cricket – Auction', href: '/cricket-auction' },
+              ].map(({ label, href }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:text-[#D0620D] hover:bg-orange-50 transition-colors"
+                >
+                  {label}
+                </Link>
+              ))}
+              <div className="border-t border-gray-100 pt-2 mt-2">
+                <Link href="/" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-sm text-gray-600 hover:text-[#D0620D] rounded-lg hover:bg-orange-50">
+                  ← Back to Site
+                </Link>
+                <button
+                  onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-sm font-medium text-[#D0620D] hover:bg-orange-50 rounded-lg"
+                >
+                  Logout
+                </button>
               </div>
-              <Link
-                href="/dashboard/team"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-[#D0620D] hover:bg-gray-100"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Team Management
-              </Link>
-              <Link
-                href="/dashboard/player"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-[#D0620D] hover:bg-gray-100"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Player Management
-              </Link>
-              <Link
-                href="/auction"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-[#D0620D] hover:bg-gray-100"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Auction
-              </Link>
-              <div className="border-t border-gray-200 my-2"></div>
-              <Link
-                href="/"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-[#D0620D] hover:bg-gray-100"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Back to Site
-              </Link>
-              <button
-                onClick={() => {
-                  handleLogout();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 text-base font-medium text-[#D0620D] hover:bg-gray-100"
-              >
-                Logout
-              </button>
             </div>
           </div>
         )}
       </nav>
 
-      {/* Tab Navigation */}
-      <div className="bg-gray-100 border-b overflow-x-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-1 sm:space-x-2 md:space-x-8 min-w-max">
-            <Link
-              href="/dashboard/team"
-              className="py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap border-transparent text-gray-500 hover:text-gray-700 hover:border-[#D0620D]"
-            >
-              Team Management
-            </Link>
-            <Link
-              href="/dashboard/player"
-              className="py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap border-transparent text-gray-500 hover:text-gray-700 hover:border-[#D0620D]"
-            >
-              Player Management
-            </Link>
-            <Link
-              href="/auction"
-              className="py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap border-transparent text-gray-500 hover:text-gray-700 hover:border-[#D0620D]"
-            >
-              Auction
-            </Link>
+      {/* Sport tab switcher - only show on sub-pages, not on /dashboard */}
+      {pathname !== '/dashboard' && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex overflow-x-auto scrollbar-hide">
+              {topTabs.map(({ label, href, match }) => {
+                const active = match(pathname);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      'flex-shrink-0 py-3 px-4 sm:px-6 border-b-2 text-sm font-medium whitespace-nowrap transition-colors',
+                      active
+                        ? 'border-[#D0620D] text-[#D0620D]'
+                        : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
+                    )}
+                  >
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-6 md:py-8">
+      {/* Page content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <ProtectedRoute>
-          <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 sm:p-7">
             {children}
           </div>
         </ProtectedRoute>
