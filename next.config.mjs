@@ -12,6 +12,11 @@ const nextConfig = {
         hostname: 'firebasestorage.googleapis.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'dsa.uiu.ac.bd',
+        pathname: '/loan/api/photo/**',
+      },
     ],
   },
   reactStrictMode: true,
