@@ -340,7 +340,7 @@ export default function CricketPlayerManagement() {
             </div>
             <div className="space-y-1">
               <Label>Position</Label>
-              <select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+              <select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="all">All Positions</option>
                 {CRICKET_POSITIONS.map((p) => (
                   <option key={p} value={p}>{p}</option>
@@ -349,7 +349,7 @@ export default function CricketPlayerManagement() {
             </div>
             <div className="space-y-1">
               <Label>Category</Label>
-              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="all">All</option>
                 <option value="A">Category A</option>
                 <option value="B">Category B</option>
@@ -443,7 +443,7 @@ export default function CricketPlayerManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <select value={player.team || ''} onChange={(e) => handleAssignPlayer(player.id, e.target.value)} className="px-2 py-1 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                        <select value={player.team || ''} onChange={(e) => handleAssignPlayer(player.id, e.target.value)} style={{ height: '30px' }} className="px-2 py-1 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                           <option value="">Unassigned</option>
                           {teams.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                         </select>
@@ -482,7 +482,7 @@ export default function CricketPlayerManagement() {
               <div className="space-y-1"><Label>Full Name</Label><Input name="name" required /></div>
               <div className="space-y-1"><Label>University ID</Label><Input name="uniId" required /></div>
               <div className="space-y-1"><Label>Semester</Label>
-                <select name="semester" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select name="semester" style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Select Semester</option>
                   {[1,2,3,4,5,6,7,8,9,10,11,12].map(s => (
                     <option key={s} value={`${s}${s===1?'st':s===2?'nd':s===3?'rd':'th'}`}>
@@ -492,7 +492,7 @@ export default function CricketPlayerManagement() {
                 </select>
               </div>
               <div className="space-y-1"><Label>Department</Label>
-                <select name="department" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select name="department" style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Select Department</option>
                   <option value="CSE">Computer Science &amp; Engineering</option>
                   <option value="EEE">Electrical &amp; Electronic Engineering</option>
@@ -505,13 +505,13 @@ export default function CricketPlayerManagement() {
               <div className="space-y-1"><Label>Age</Label><Input type="number" name="age" min="18" max="35" /></div>
               <div className="space-y-1"><Label>Jersey Number</Label><Input type="number" name="jerseyNumber" min="1" max="99" /></div>
               <div className="space-y-1"><Label>Playing Position</Label>
-                <select name="position" required className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select name="position" required style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Select Position</option>
                   {CRICKET_POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
               <div className="space-y-1"><Label>Performance Category</Label>
-                <select name="category" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select name="category" style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Select Category</option>
                   <option value="A">Category A</option>
                   <option value="B">Category B</option>
@@ -521,14 +521,14 @@ export default function CricketPlayerManagement() {
               <div className="space-y-1"><Label>Phone</Label><Input type="tel" name="phone" /></div>
               <div className="space-y-1"><Label>Email</Label><Input type="email" name="email" /></div>
               <div className="space-y-1"><Label>Batting Style</Label>
-                <select name="battingStyle" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select name="battingStyle" style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Select</option>
                   <option value="Right-handed">Right-handed</option>
                   <option value="Left-handed">Left-handed</option>
                 </select>
               </div>
               <div className="space-y-1"><Label>Bowling Style</Label>
-                <select name="bowlingStyle" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select name="bowlingStyle" style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Select / N/A</option>
                   <option value="Right-arm Fast">Right-arm Fast</option>
                   <option value="Right-arm Medium">Right-arm Medium</option>
@@ -557,7 +557,7 @@ export default function CricketPlayerManagement() {
                 <div className="space-y-1"><Label>Full Name</Label><Input name="name" defaultValue={editingPlayer.name} required /></div>
                 <div className="space-y-1"><Label>University ID</Label><Input name="uniId" defaultValue={editingPlayer.uniId} required /></div>
                 <div className="space-y-1"><Label>Semester</Label>
-                  <select name="semester" defaultValue={editingPlayer.semester} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <select name="semester" defaultValue={editingPlayer.semester} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                     <option value="">Select Semester</option>
                     {[1,2,3,4,5,6,7,8,9,10,11,12].map(s => <option key={s} value={`${s}${s===1?'st':s===2?'nd':s===3?'rd':'th'}`}>{s}{s===1?'st':s===2?'nd':s===3?'rd':'th'} Semester</option>)}
                   </select>
@@ -566,13 +566,13 @@ export default function CricketPlayerManagement() {
                 <div className="space-y-1"><Label>Age</Label><Input type="number" name="age" defaultValue={editingPlayer.age} min="18" max="35" /></div>
                 <div className="space-y-1"><Label>Jersey Number</Label><Input type="number" name="jerseyNumber" defaultValue={editingPlayer.jerseyNumber || ''} min="1" max="99" /></div>
                 <div className="space-y-1"><Label>Position</Label>
-                  <select name="position" defaultValue={editingPlayer.position} required className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <select name="position" defaultValue={editingPlayer.position} required style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                     <option value="">Select Position</option>
                     {CRICKET_POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1"><Label>Category</Label>
-                  <select name="category" defaultValue={editingPlayer.category || ''} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <select name="category" defaultValue={editingPlayer.category || ''} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                     <option value="">Select Category</option>
                     <option value="A">Category A</option>
                     <option value="B">Category B</option>
@@ -587,14 +587,14 @@ export default function CricketPlayerManagement() {
                 <div className="space-y-1"><Label>Phone</Label><Input type="tel" name="phone" defaultValue={editingPlayer.phone || ''} /></div>
                 <div className="space-y-1"><Label>Email</Label><Input type="email" name="email" defaultValue={editingPlayer.email || ''} /></div>
                 <div className="space-y-1"><Label>Batting Style</Label>
-                  <select name="battingStyle" defaultValue={editingPlayer.battingStyle || ''} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <select name="battingStyle" defaultValue={editingPlayer.battingStyle || ''} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                     <option value="">Select</option>
                     <option value="Right-handed">Right-handed</option>
                     <option value="Left-handed">Left-handed</option>
                   </select>
                 </div>
                 <div className="space-y-1"><Label>Bowling Style</Label>
-                  <select name="bowlingStyle" defaultValue={editingPlayer.bowlingStyle || ''} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <select name="bowlingStyle" defaultValue={editingPlayer.bowlingStyle || ''} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                     <option value="">Select / N/A</option>
                     <option value="Right-arm Fast">Right-arm Fast</option>
                     <option value="Right-arm Medium">Right-arm Medium</option>
@@ -605,7 +605,7 @@ export default function CricketPlayerManagement() {
                   </select>
                 </div>
                 <div className="col-span-2 space-y-1"><Label>Assign to Team</Label>
-                  <select name="team" defaultValue={editingPlayer.team || ''} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <select name="team" defaultValue={editingPlayer.team || ''} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                     <option value="">Unassigned</option>
                     {teams.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                   </select>

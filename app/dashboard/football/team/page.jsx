@@ -555,14 +555,14 @@ export default function TeamManagement() {
                       <div className="space-y-2">
                         <div>
                           <Label className="text-xs">Captain</Label>
-                          <select value={team.captain || ''} onChange={(e) => handleCaptainChange(team.id, e.target.value)} className="mt-1 w-full px-2 py-1 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                          <select value={team.captain || ''} onChange={(e) => handleCaptainChange(team.id, e.target.value)} style={{ height: '30px' }} className="mt-1 w-full px-2 py-1 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                             <option value="">Select Captain</option>
                             {teamPlayers.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                           </select>
                         </div>
                         <div>
                           <Label className="text-xs">Vice Captain</Label>
-                          <select value={team.viceCaptain || ''} onChange={(e) => handleViceCaptainChange(team.id, e.target.value)} className="mt-1 w-full px-2 py-1 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                          <select value={team.viceCaptain || ''} onChange={(e) => handleViceCaptainChange(team.id, e.target.value)} style={{ height: '30px' }} className="mt-1 w-full px-2 py-1 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                             <option value="">Select Vice Captain</option>
                             {teamPlayers.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                           </select>

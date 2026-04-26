@@ -434,7 +434,7 @@ export default function PlayerManagement() {
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div className="space-y-1">
               <Label>Team</Label>
-              <select value={selectedTeamFilter} onChange={(e) => setSelectedTeamFilter(e.target.value)} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+              <select value={selectedTeamFilter} onChange={(e) => setSelectedTeamFilter(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="all">All ({players.length})</option>
                 <option value="unassigned">Unassigned ({players.filter(p => !p.team).length})</option>
                 {teams.map(t => <option key={t.id} value={t.name}>{t.name} ({players.filter(p => p.team === t.name).length})</option>)}
@@ -442,7 +442,7 @@ export default function PlayerManagement() {
             </div>
             <div className="space-y-1">
               <Label>Category</Label>
-              <select value={selectedCategoryFilter} onChange={(e) => setSelectedCategoryFilter(e.target.value)} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+              <select value={selectedCategoryFilter} onChange={(e) => setSelectedCategoryFilter(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="all">All</option>
                 <option value="A">Category A</option>
                 <option value="B">Category B</option>
@@ -450,7 +450,7 @@ export default function PlayerManagement() {
             </div>
             <div className="space-y-1">
               <Label>Position</Label>
-              <select value={selectedPositionFilter} onChange={(e) => setSelectedPositionFilter(e.target.value)} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+              <select value={selectedPositionFilter} onChange={(e) => setSelectedPositionFilter(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="all">All</option>
                 <option value="Goalkeeper (GK)">Goalkeeper (GK)</option>
                 <option value="Defender">Defender</option>
@@ -460,7 +460,7 @@ export default function PlayerManagement() {
             </div>
             <div className="space-y-1">
               <Label>Assignment</Label>
-              <select value={assignmentStatusFilter} onChange={(e) => setAssignmentStatusFilter(e.target.value)} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+              <select value={assignmentStatusFilter} onChange={(e) => setAssignmentStatusFilter(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="all">All</option>
                 <option value="assigned">Assigned</option>
                 <option value="unassigned">Unassigned</option>
@@ -468,7 +468,7 @@ export default function PlayerManagement() {
             </div>
             <div className="space-y-1">
               <Label>Role</Label>
-              <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+              <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="all">All</option>
                 <option value="captain">Captain</option>
                 <option value="vice_captain">Vice Captain</option>
@@ -559,7 +559,7 @@ export default function PlayerManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <select value={player.team || ''} onChange={(e) => handleAssignPlayer(player.id, e.target.value)} className="px-2 py-1 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                        <select value={player.team || ''} onChange={(e) => handleAssignPlayer(player.id, e.target.value)} style={{ height: '30px' }} className="px-2 py-1 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                           <option value="">Unassigned</option>
                           {teams.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                         </select>
@@ -596,13 +596,13 @@ export default function PlayerManagement() {
               <div className="space-y-1"><Label>Full Name</Label><Input name="name" required /></div>
               <div className="space-y-1"><Label>University ID</Label><Input name="uniId" required /></div>
               <div className="space-y-1"><Label>Semester</Label>
-                <select name="semester" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select name="semester" style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Select Semester</option>
                   {[1,2,3,4,5,6,7,8,9,10,11,12].map(s => <option key={s} value={`${s}${s===1?'st':s===2?'nd':s===3?'rd':'th'}`}>{s}{s===1?'st':s===2?'nd':s===3?'rd':'th'} Semester</option>)}
                 </select>
               </div>
               <div className="space-y-1"><Label>Department</Label>
-                <select name="department" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select name="department" style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Select Department</option>
                   <option value="CSE">Computer Science &amp; Engineering</option>
                   <option value="EEE">Electrical &amp; Electronic Engineering</option>
@@ -615,7 +615,7 @@ export default function PlayerManagement() {
               <div className="space-y-1"><Label>Age</Label><Input type="number" name="age" min="18" max="30" /></div>
               <div className="space-y-1"><Label>Jersey Number</Label><Input type="number" name="jerseyNumber" min="1" max="99" /></div>
               <div className="space-y-1"><Label>Position</Label>
-                <select name="position" required className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select name="position" required style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Select Position</option>
                   <option value="Goalkeeper (GK)">Goalkeeper (GK)</option>
                   <option value="Midfielder">Midfielder</option>
@@ -624,7 +624,7 @@ export default function PlayerManagement() {
                 </select>
               </div>
               <div className="space-y-1"><Label>Category</Label>
-                <select name="category" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select name="category" style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Select Category</option>
                   <option value="A">Category A</option>
                   <option value="B">Category B</option>
@@ -634,7 +634,7 @@ export default function PlayerManagement() {
               <div className="space-y-1"><Label>Phone</Label><Input type="tel" name="phone" /></div>
               <div className="space-y-1"><Label>Email</Label><Input type="email" name="email" /></div>
               <div className="col-span-2 space-y-1"><Label>Assign to Team (Optional)</Label>
-                <select name="team" className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select name="team" style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Unassigned</option>
                   {teams.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                 </select>
@@ -658,13 +658,13 @@ export default function PlayerManagement() {
                 <div className="space-y-1"><Label>Full Name</Label><Input name="name" defaultValue={editingPlayer.name} required /></div>
                 <div className="space-y-1"><Label>University ID</Label><Input name="uniId" defaultValue={editingPlayer.uniId} required /></div>
                 <div className="space-y-1"><Label>Semester</Label>
-                  <select name="semester" defaultValue={editingPlayer.semester} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <select name="semester" defaultValue={editingPlayer.semester} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                     <option value="">Select Semester</option>
                     {[1,2,3,4,5,6,7,8,9,10,11,12].map(s => <option key={s} value={`${s}${s===1?'st':s===2?'nd':s===3?'rd':'th'}`}>{s}{s===1?'st':s===2?'nd':s===3?'rd':'th'} Semester</option>)}
                   </select>
                 </div>
                 <div className="space-y-1"><Label>Department</Label>
-                  <select name="department" defaultValue={editingPlayer.department} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <select name="department" defaultValue={editingPlayer.department} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                     <option value="">Select Department</option>
                     <option value="CSE">Computer Science &amp; Engineering</option>
                     <option value="EEE">Electrical &amp; Electronic Engineering</option>
@@ -677,7 +677,7 @@ export default function PlayerManagement() {
                 <div className="space-y-1"><Label>Age</Label><Input type="number" name="age" defaultValue={editingPlayer.age} min="18" max="30" /></div>
                 <div className="space-y-1"><Label>Jersey Number</Label><Input type="number" name="jerseyNumber" defaultValue={editingPlayer.jerseyNumber || ''} min="1" max="99" /></div>
                 <div className="space-y-1"><Label>Position</Label>
-                  <select name="position" defaultValue={editingPlayer.position} required className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <select name="position" defaultValue={editingPlayer.position} required style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                     <option value="">Select Position</option>
                     <option value="Goalkeeper (GK)">Goalkeeper (GK)</option>
                     <option value="Midfielder">Midfielder</option>
@@ -686,7 +686,7 @@ export default function PlayerManagement() {
                   </select>
                 </div>
                 <div className="space-y-1"><Label>Category</Label>
-                  <select name="category" defaultValue={editingPlayer.category || ''} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <select name="category" defaultValue={editingPlayer.category || ''} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                     <option value="">Select Category</option>
                     <option value="A">Category A</option>
                     <option value="B">Category B</option>
@@ -701,7 +701,7 @@ export default function PlayerManagement() {
                 <div className="space-y-1"><Label>Phone</Label><Input type="tel" name="phone" defaultValue={editingPlayer.phone} /></div>
                 <div className="space-y-1"><Label>Email</Label><Input type="email" name="email" defaultValue={editingPlayer.email} /></div>
                 <div className="col-span-2 space-y-1"><Label>Assign to Team</Label>
-                  <select name="team" defaultValue={editingPlayer.team || ''} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                  <select name="team" defaultValue={editingPlayer.team || ''} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                     <option value="">Unassigned</option>
                     {teams.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                   </select>
@@ -872,7 +872,7 @@ export default function PlayerManagement() {
 
               <div className="space-y-1">
                 <Label>Select Category to Assign</Label>
-                <select value={selectedCategoryForAssign} onChange={(e) => setSelectedCategoryForAssign(e.target.value)} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+                <select value={selectedCategoryForAssign} onChange={(e) => setSelectedCategoryForAssign(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                   <option value="">Choose a category...</option>
                   <option value="A">Category A</option>
                   <option value="B">Category B</option>
