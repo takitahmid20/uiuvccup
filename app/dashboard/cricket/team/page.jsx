@@ -262,7 +262,20 @@ export default function CricketTeamManagement() {
                   const teamPlayers = players.filter(p => p.team === team.name);
                   return (
                     <TableRow key={team.id}>
-                      <TableCell className="font-medium">{team.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          {team.logo ? (
+                            <img src={team.logo} alt={`${team.name} logo`} className="w-10 h-10 rounded-full object-cover object-center" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm">
+                              {team.name.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <div className="text-sm font-medium">{team.name}</div>
+                          </div>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="space-y-2">
                           <div>

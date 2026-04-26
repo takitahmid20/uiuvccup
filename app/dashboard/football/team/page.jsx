@@ -523,9 +523,9 @@ export default function TeamManagement() {
               teams.map((team) => (
               <TableRow key={team.id}>
                 <TableCell>
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-3">
                     {team.logo ? (
-                      <img src={team.logo} alt={`${team.name} logo`} className="w-10 h-10 rounded-full object-cover" />
+                      <img src={team.logo} alt={`${team.name} logo`} className="w-10 h-10 rounded-full object-cover object-center" />
                     ) : (
                       <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm">
                         {team.name.substring(0, 2).toUpperCase()}

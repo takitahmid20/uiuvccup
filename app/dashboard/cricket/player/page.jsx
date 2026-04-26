@@ -423,9 +423,21 @@ export default function CricketPlayerManagement() {
                       <div className="text-xs text-muted-foreground">{player.phone}</div>
                     </TableCell>
                     <TableCell>
-                      {player.team ? (
-                        <Badge className="bg-green-100 text-green-800">{player.team}</Badge>
-                      ) : (
+                      {player.team ? (() => {
+                        const team = teams.find(t => t.name === player.team);
+                        return (
+                          <div className="flex items-center gap-2">
+                            {team?.logo ? (
+                              <img src={team.logo} alt={`${team.name} logo`} className="w-6 h-6 rounded-full object-cover object-center" />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center bg-primary text-primary-foreground font-bold text-xs">
+                                {player.team.substring(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <Badge className="bg-green-100 text-green-800">{player.team}</Badge>
+                          </div>
+                        );
+                      })() : (
                         <Badge variant="secondary">Unassigned</Badge>
                       )}
                     </TableCell>
