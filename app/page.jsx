@@ -198,15 +198,15 @@ export default function Home() {
               {/* Main Heading */}
               <div className="space-y-1 sm:space-y-2">
                 <h1 className="hero-title text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black leading-tight">
-                  <span className="block text-white">YOUR GAME</span>
-                  <span className="block text-[#D0620D]">YOUR PASSION</span>
-                  <span className="block text-white">YOUR KICK.</span>
+                  <span className="block text-white">YOUR GROUND</span>
+                  <span className="block text-[#D0620D]">YOUR PRIDE</span>
+                  <span className="block text-white">YOUR GLORY.</span>
                 </h1>
               </div>
 
               {/* Description */}
               <p className="text-base sm:text-lg md:text-xl text-gray-300 max-w-2xl leading-relaxed">
-                Stay ahead with the latest football tournament action, live scores, and in-depth match analysis — all in one place with{' '}
+                From the first ball to the final over. 🏏{' '}
                 <span className="text-[#D0620D] font-semibold">UIU VC Cup</span>.
               </p>
 
