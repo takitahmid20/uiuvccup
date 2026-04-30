@@ -3,14 +3,15 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Helper function to check if user is admin
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'uiuvccup@gmail.com';
+      return request.auth != null && request.auth.token.role == 'admin';
     }
-    
-    // Helper function to check if user is team owner
+
     function isTeamOwner() {
-      return request.auth != null && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'team_owner';
+      return request.auth != null && request.auth.token.role == 'team_owner';
+    }
+
+    function teamOwnerTeamName() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamName;
     }
     
     // Teams collection - read: all, write: admin only
@@ -22,12 +23,32 @@ service cloud.firestore {
     // Players collection - read: all, write: admin only
     match /players/{playerId} {
       allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isTeamOwner()
+          && resource.data.team == teamOwnerTeamName()
+          && request.resource.data.team == resource.data.team
+          && request.resource.data.soldPrice == resource.data.soldPrice);
+    }
+
+    match /cricket-teams/{teamId} {
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
+
+    match /cricket-players/{playerId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isTeamOwner()
+          && resource.data.team == teamOwnerTeamName()
+          && request.resource.data.team == resource.data.team
+          && request.resource.data.soldPrice == resource.data.soldPrice);
+    }
     
-    // Users collection - read: authenticated, write: admin only
+    // Users collection - read: self or admin, write: self (limited) or admin
     match /users/{userId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
       allow create, update, delete: if isAdmin();
     }
     

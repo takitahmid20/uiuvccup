@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "set-admin": "node scripts/set-admin.js",
+    "migrate-team-owners": "node scripts/migrate-team-owners.js"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -17,6 +19,8 @@
     "cloudinary": "^2.7.0",
     "clsx": "^2.1.1",
     "firebase": "^12.4.0",
+    "firebase-admin": "^12.7.0",
+    "dotenv": "^16.6.1",
     "lucide-react": "^1.11.0",
     "next": "16.2.4",
     "next-cloudinary": "^6.16.0",

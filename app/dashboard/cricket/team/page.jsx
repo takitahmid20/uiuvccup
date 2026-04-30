@@ -99,6 +99,14 @@ export default function CricketTeamManagement() {
       };
 
       const teamId = await cricketTeamsService.create(teamData);
+
+      if (ownerCredentials?.uid) {
+        try {
+          await userService.update(ownerCredentials.uid, { teamId, teamName: teamData.name });
+        } catch (err) {
+          showToast('Failed to link owner to team.', 'error');
+        }
+      }
       setTeams([...teams, { id: teamId, ...teamData }]);
       setShowAddModal(false);
     } catch (error) {
@@ -168,12 +176,20 @@ export default function CricketTeamManagement() {
     e.preventDefault();
     const formData = new FormData(e.target);
     try {
+      const nextName = formData.get('name');
       await cricketTeamsService.update(editingTeam.id, {
-        name: formData.get('name'),
+        name: nextName,
         mentor: formData.get('mentor') || '',
         color: formData.get('color') || editingTeam.color,
         logo: formData.get('logoUrl') || editingTeam.logo
       });
+      if (editingTeam.ownerId) {
+        try {
+          await userService.update(editingTeam.ownerId, { teamId: editingTeam.id, teamName: nextName });
+        } catch (err) {
+          showToast('Failed to sync owner team info.', 'error');
+        }
+      }
       showToast('Team updated successfully', 'success');
       setEditingTeam(null);
       loadData();

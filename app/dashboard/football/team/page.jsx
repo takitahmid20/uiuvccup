@@ -67,7 +67,7 @@ export default function TeamManagement() {
     });
     
     // Don't redirect while auth is still loading OR if userRole is not set yet
-    if (authLoading || (currentUser && userRole === null)) {
+    if (authLoading) {
       logger.log('⏳ TeamManagement: Still loading auth or role, waiting...', {
         authLoading,
         hasUser: !!currentUser,
@@ -208,6 +208,13 @@ export default function TeamManagement() {
           color: '#D0620D'
         };
         const id = await teamsService.create(teamData);
+        if (ownerId) {
+          try {
+            await userService.update(ownerId, { teamId: id, teamName: teamData.name });
+          } catch (e) {
+            logger.error('Failed to link owner to team:', row.name, e);
+          }
+        }
         created.push({ id, ...teamData, players: 0 });
       }
       setTeams([...teams, ...created]);
@@ -280,11 +287,13 @@ export default function TeamManagement() {
       const newEmail = (updatedTeamData.email || '').trim();
       let ownerId = editingTeam.ownerId || null;
       let generatedPassword = editingTeam.generatedPassword || null;
+      let ownerCreated = false;
       if (newEmail && newEmail !== (editingTeam.email || '')) {
         try {
-          const creds = await userService.createTeamOwner(newEmail, updatedTeamData.name || editingTeam.name);
+          const creds = await userService.createTeamOwner(newEmail, updatedTeamData.name || editingTeam.name, editingTeam.id);
           ownerId = creds.uid;
           generatedPassword = creds.password;
+          ownerCreated = true;
           showToast(`Owner account created. Email: ${creds.email} Password: ${creds.password}`, 'success');
         } catch (err) {
           logger.error('Error creating owner for updated email:', err);
@@ -298,13 +307,21 @@ export default function TeamManagement() {
         name: updatedTeamData.name,
         logo: logoUrl,
         mentor: updatedTeamData.mentor || '',
-        email: newEmail || editingTeam.email || '',
+        email: ownerCreated ? newEmail : (editingTeam.email || ''),
         ownerId,
         generatedPassword
       };
       
       // Update in Firebase
       await teamsService.update(editingTeam.id, updatedTeam);
+
+      if (ownerId) {
+        try {
+          await userService.update(ownerId, { teamId: editingTeam.id, teamName: updatedTeam.name });
+        } catch (err) {
+          logger.error('Failed to update owner team info:', err);
+        }
+      }
       
       // Update local state
       setTeams(teams.map(team => 
@@ -375,6 +392,14 @@ export default function TeamManagement() {
       
       // Save to Firebase
       const teamId = await teamsService.create(teamData);
+
+      if (ownerCredentials?.uid) {
+        try {
+          await userService.update(ownerCredentials.uid, { teamId, teamName: teamData.name });
+        } catch (err) {
+          logger.error('Failed to update owner team info:', err);
+        }
+      }
       
       // Add to local state with 0 players initially
       setTeams([...teams, { id: teamId, ...teamData, players: 0 }]);
@@ -450,7 +475,7 @@ export default function TeamManagement() {
   /* Removed legacy CSV helpers and duplicate drag handlers */
 
   // Show loading screen while auth is being determined or role is being loaded
-  if (authLoading || (currentUser && userRole === null)) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0A0D13' }}>
         <div className="text-center space-y-4">

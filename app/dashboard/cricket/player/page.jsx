@@ -32,6 +32,8 @@ const CRICKET_POSITIONS = [
   'Wicket-Keeper Batsman',
 ];
 
+const REMARK_OPTIONS = ['Y', 'VY', 'P', 'VP', 'VYP', 'YP'];
+
 export default function CricketPlayerManagement() {
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -42,9 +44,13 @@ export default function CricketPlayerManagement() {
   const [viewingPlayer, setViewingPlayer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('all');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [remarksFilter, setRemarksFilter] = useState('all');
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [csvUploading, setCsvUploading] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [uploadTotal, setUploadTotal] = useState(0);
+  const [uploadCount, setUploadCount] = useState(0);
+  const [uploadErrors, setUploadErrors] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const { showToast } = useToast();
 
@@ -54,7 +60,7 @@ export default function CricketPlayerManagement() {
 
   useEffect(() => {
     filterPlayers();
-  }, [players, searchTerm, positionFilter, categoryFilter]);
+  }, [players, searchTerm, positionFilter, remarksFilter]);
 
   const loadData = async () => {
     try {
@@ -84,8 +90,8 @@ export default function CricketPlayerManagement() {
     if (positionFilter !== 'all') {
       filtered = filtered.filter(p => p.position === positionFilter);
     }
-    if (categoryFilter !== 'all') {
-      filtered = filtered.filter(p => p.category === categoryFilter);
+    if (remarksFilter !== 'all') {
+      filtered = filtered.filter(p => (p.category || '') === remarksFilter);
     }
     setFilteredPlayers(filtered);
   };
@@ -129,6 +135,27 @@ export default function CricketPlayerManagement() {
     }
   };
 
+  const handleDeleteAllPlayers = async () => {
+    if (players.length === 0) {
+      showToast('No players to delete.', 'warning');
+      return;
+    }
+    const confirmed = confirm('Delete ALL cricket players? This cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      setDeletingAll(true);
+      await Promise.all(players.map((player) => cricketPlayersService.delete(player.id)));
+      setPlayers([]);
+      setFilteredPlayers([]);
+      showToast('All players deleted successfully', 'success');
+    } catch (error) {
+      showToast('Failed to delete all players', 'error');
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
   const handleAssignPlayer = async (playerId, teamName) => {
     try {
       await cricketPlayersService.assignToTeam(playerId, teamName || null);
@@ -146,37 +173,73 @@ export default function CricketPlayerManagement() {
       reader.onload = (e) => {
         try {
           const csv = e.target.result;
-          const lines = csv.split('\n');
-          const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-          
-          // Expected headers: name, uniId, position (optional: semester, department, age, phone, email, team, category, jerseyNumber, basePrice, battingStyle, bowlingStyle)
-          const requiredHeaders = ['name', 'uniid'];
-          const missing = requiredHeaders.filter(h => !headers.includes(h));
+          const lines = csv.split(/\r?\n/).filter(Boolean);
+          if (lines.length === 0) return resolve([]);
+
+          const delimiter = lines[0].includes('\t') ? '\t' : ',';
+
+          const normalizeHeader = (value) => value
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '');
+
+          const headerMap = {
+            sl: 'sl',
+            studentid: 'studentid',
+            studentname: 'studentname',
+            phone: 'phone',
+            lastenrolledtrimester: 'lastenrolledtrimester',
+            playingrole: 'playingrole',
+            remarks: 'remarks'
+          };
+
+          const headers = lines[0]
+            .split(delimiter)
+            .map((h) => headerMap[normalizeHeader(h)] || normalizeHeader(h));
+
+          const requiredHeaders = ['studentid', 'studentname', 'playingrole'];
+          const missing = requiredHeaders.filter((h) => !headers.includes(h));
           if (missing.length > 0) {
             throw new Error(`Missing required columns: ${missing.join(', ')}`);
           }
-          
+
+          const normalizeRole = (value) => {
+            const raw = (value || '').trim().toLowerCase();
+            if (!raw) return 'Batsman';
+            if (raw.includes('all')) return 'All-Rounder';
+            if (raw.includes('batsman')) return 'Batsman';
+            if (raw.includes('bowler')) return 'Bowler';
+            if (raw.includes('keeper') || raw.includes('wicket')) return 'Wicket-Keeper';
+            return 'Batsman';
+          };
+
+          const normalizeRemarks = (value) => (value || '')
+            .replace(/\s+/g, '')
+            .toUpperCase();
+
           const out = [];
           for (let i = 1; i < lines.length; i++) {
             if (!lines[i].trim()) continue;
-            const values = lines[i].split(',');
+            const values = lines[i].split(delimiter);
             const row = {};
-            headers.forEach((h, idx) => row[h] = values[idx] ? values[idx].trim() : '');
+            headers.forEach((h, idx) => { row[h] = values[idx] ? values[idx].trim() : ''; });
+
+            if (!row.studentid || !row.studentname) continue;
+
             out.push({
-              name: row.name,
-              uniId: row.uniid,
-              semester: row.semester || '',
-              department: row.department || '',
-              age: row.age ? parseInt(row.age) : null,
-              position: row.position || 'Batsman',
-              category: row.category || '',
-              jerseyNumber: row.jerseynumber ? parseInt(row.jerseynumber) : null,
-              basePrice: row.baseprice ? parseInt(row.baseprice) : null,
+              name: row.studentname,
+              uniId: row.studentid,
+              semester: row.lastenrolledtrimester || '',
+              department: '',
+              age: null,
+              position: normalizeRole(row.playingrole),
+              category: normalizeRemarks(row.remarks),
+              jerseyNumber: null,
+              basePrice: null,
               phone: row.phone || '',
-              email: row.email || '',
-              battingStyle: row.battingstyle || '',
-              bowlingStyle: row.bowlingstyle || '',
-              team: row.team || null
+              email: '',
+              battingStyle: '',
+              bowlingStyle: '',
+              team: null
             });
           }
           resolve(out);
@@ -193,6 +256,7 @@ export default function CricketPlayerManagement() {
   const handleCsvUpload = async (file) => {
     try {
       setCsvUploading(true);
+      setUploadErrors(0);
       
       // Validate file type
       if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -208,6 +272,9 @@ export default function CricketPlayerManagement() {
         return;
       }
       
+      setUploadTotal(playersData.length);
+      setUploadCount(0);
+
       // Create players in Firebase
       const createdPlayers = [];
       let successCount = 0;
@@ -218,9 +285,12 @@ export default function CricketPlayerManagement() {
           const playerId = await cricketPlayersService.create(playerData);
           createdPlayers.push({ id: playerId, ...playerData });
           successCount++;
+          setUploadCount((count) => count + 1);
         } catch (err) {
           console.error('Error creating player:', playerData.name, err);
           errorCount++;
+          setUploadErrors((count) => count + 1);
+          setUploadCount((count) => count + 1);
         }
       }
       
@@ -313,6 +383,9 @@ export default function CricketPlayerManagement() {
           <Button variant="outline" onClick={() => setShowCsvModal(true)} disabled={csvUploading}>
             📄 Upload CSV
           </Button>
+          <Button variant="destructive" onClick={handleDeleteAllPlayers} disabled={csvUploading || deletingAll}>
+            {deletingAll ? 'Deleting...' : 'Delete All'}
+          </Button>
           <Button onClick={() => setShowAddModal(true)} disabled={csvUploading}>
             <Plus className="w-4 h-4" />
             Add Player
@@ -348,11 +421,12 @@ export default function CricketPlayerManagement() {
               </select>
             </div>
             <div className="space-y-1">
-              <Label>Category</Label>
-              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
+              <Label>Remarks</Label>
+              <select value={remarksFilter} onChange={(e) => setRemarksFilter(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
                 <option value="all">All</option>
-                <option value="A">Category A</option>
-                <option value="B">Category B</option>
+                {REMARK_OPTIONS.map((remark) => (
+                  <option key={remark} value={remark}>{remark}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -367,7 +441,7 @@ export default function CricketPlayerManagement() {
               <TableRow>
                 <TableHead>Player</TableHead>
                 <TableHead>Position</TableHead>
-                <TableHead>Category</TableHead>
+                <TableHead>Remarks</TableHead>
                 <TableHead>Details</TableHead>
                 <TableHead>Team</TableHead>
                 <TableHead>Assign</TableHead>
@@ -416,7 +490,7 @@ export default function CricketPlayerManagement() {
                       <Badge variant="outline">{player.position}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">Cat {player.category || '—'}</Badge>
+                      <Badge variant="outline">{player.category || '—'}</Badge>
                     </TableCell>
                     <TableCell className="text-sm">
                       <div className="text-muted-foreground">{player.department} · Age {player.age}</div>
@@ -510,11 +584,12 @@ export default function CricketPlayerManagement() {
                   {CRICKET_POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
-              <div className="space-y-1"><Label>Performance Category</Label>
+              <div className="space-y-1"><Label>Remarks</Label>
                 <select name="category" style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
-                  <option value="">Select Category</option>
-                  <option value="A">Category A</option>
-                  <option value="B">Category B</option>
+                  <option value="">Select Remark</option>
+                  {REMARK_OPTIONS.map((remark) => (
+                    <option key={remark} value={remark}>{remark}</option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-1"><Label>Base Price (৳)</Label><Input type="number" name="basePrice" min="0" placeholder="e.g. 5000" /></div>
@@ -571,11 +646,12 @@ export default function CricketPlayerManagement() {
                     {CRICKET_POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
-                <div className="space-y-1"><Label>Category</Label>
+                <div className="space-y-1"><Label>Remarks</Label>
                   <select name="category" defaultValue={editingPlayer.category || ''} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
-                    <option value="">Select Category</option>
-                    <option value="A">Category A</option>
-                    <option value="B">Category B</option>
+                    <option value="">Select Remark</option>
+                    {REMARK_OPTIONS.map((remark) => (
+                      <option key={remark} value={remark}>{remark}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-1"><Label>Base Price (৳)</Label><Input type="number" name="basePrice" defaultValue={editingPlayer.basePrice || ''} min="0" /></div>
@@ -633,7 +709,7 @@ export default function CricketPlayerManagement() {
                 'Semester': viewingPlayer.semester,
                 'Age': viewingPlayer.age,
                 'Position': viewingPlayer.position,
-                'Category': viewingPlayer.category,
+                'Remarks': viewingPlayer.category,
                 'Jersey Number': viewingPlayer.jerseyNumber,
                 'Base Price': viewingPlayer.basePrice ? `৳${viewingPlayer.basePrice.toLocaleString()}` : '—',
                 'Sold Price': viewingPlayer.soldPrice ? `৳${viewingPlayer.soldPrice.toLocaleString()}` : '—',
@@ -662,16 +738,34 @@ export default function CricketPlayerManagement() {
           <DialogHeader><DialogTitle>Upload Players via CSV</DialogTitle></DialogHeader>
           <div>
             <div className="mb-6">
+              {(csvUploading || uploadTotal > 0) && (
+                <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4">
+                  <div className="flex items-center justify-between text-sm text-gray-700 mb-2">
+                    <span>{csvUploading ? 'Uploading players...' : 'Upload complete'}</span>
+                    <span>{uploadCount}/{uploadTotal}</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+                    <div
+                      className="h-2 bg-[#D0620D] transition-all"
+                      style={{ width: `${uploadTotal ? Math.round((uploadCount / uploadTotal) * 100) : 0}%` }}
+                    ></div>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Errors: {uploadErrors}
+                  </div>
+                </div>
+              )}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                 <h4 className="font-medium text-blue-900 mb-2">📋 CSV Format Requirements:</h4>
                 <div className="text-sm text-blue-800 space-y-1">
-                  <p><strong>Required columns:</strong> name, uniId</p>
-                  <p><strong>Optional columns:</strong> semester, department, age, position, category, jerseyNumber, basePrice, phone, email, battingStyle, bowlingStyle, team</p>
+                  <p><strong>Required columns:</strong> SL, Student ID, StudentName, Playing Role</p>
+                  <p><strong>Optional columns:</strong> Phone, LastEnrolledTrimester, Remarks</p>
+                  <p><strong>Delimiter:</strong> tab or comma</p>
                   <p><strong>Example:</strong></p>
                   <div className="bg-white border rounded p-2 mt-2 font-mono text-xs">
-                    name,uniId,semester,department,position,category<br/>
-                    John Doe,011221001,5th,CSE,Batsman,A<br/>
-                    Jane Smith,011221002,7th,EEE,Bowler,B
+                    SL,Student ID,StudentName,Phone,LastEnrolledTrimester,Playing Role,Remarks<br/>
+                    1,0112230633,Md.Hasin Al Jubaier Bhuiyan,8801934409370,Spring 2026,All,Y<br/>
+                    2,114222016,Md. Rashedul Islam Razu,8801984845679,Spring 2026,Batsman,VY
                   </div>
                 </div>
               </div>

@@ -3,11 +3,23 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { teamsService, playersService } from '../lib/firebaseService';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Home() {
+  const { currentUser, isAdmin, isTeamOwner, logout, loading: authLoading } = useAuth();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setMobileOpen(false);
+    }
+  };
 
   // Load teams and calculate player counts
   useEffect(() => {
@@ -84,12 +96,31 @@ export default function Home() {
                 <Link href="/players" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">PLAYERS</Link>
                 <Link href="/auction" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">AUCTION</Link>
                 <Link href="/about" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">ABOUT</Link>
-                <Link 
-                  href="/login" 
-                  className="bg-[#D0620D] px-6 py-2 rounded-full text-white font-medium hover:bg-[#B8540B] transition-all duration-300"
-                >
-                  LOGIN
-                </Link>
+                {authLoading ? (
+                  <span className="text-gray-400 text-sm">Loading...</span>
+                ) : currentUser ? (
+                  <div className="flex items-center space-x-4">
+                    <Link
+                      href={isAdmin ? '/dashboard' : isTeamOwner ? '/team-dashboard' : '/'}
+                      className="bg-[#D0620D] px-6 py-2 rounded-full text-white font-medium hover:bg-[#B8540B] transition-all duration-300"
+                    >
+                      {isAdmin ? 'DASHBOARD' : isTeamOwner ? 'MY TEAM' : 'ACCOUNT'}
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium"
+                    >
+                      LOGOUT
+                    </button>
+                  </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="bg-[#D0620D] px-6 py-2 rounded-full text-white font-medium hover:bg-[#B8540B] transition-all duration-300"
+                  >
+                    LOGIN
+                  </Link>
+                )}
               </div>
               
               {/* Mobile menu button */}
@@ -115,7 +146,27 @@ export default function Home() {
                 <Link href="/players" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium" onClick={() => setMobileOpen(false)}>PLAYERS</Link>
                 <Link href="/auction" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium" onClick={() => setMobileOpen(false)}>AUCTION</Link>
                 <Link href="/about" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium" onClick={() => setMobileOpen(false)}>ABOUT</Link>
-                <Link href="/login" className="bg-[#D0620D] px-6 py-2 rounded-full text-white font-medium text-center hover:bg-[#B8540B] transition-all duration-300" onClick={() => setMobileOpen(false)}>LOGIN</Link>
+                {authLoading ? (
+                  <span className="text-gray-400 text-sm">Loading...</span>
+                ) : currentUser ? (
+                  <>
+                    <Link
+                      href={isAdmin ? '/dashboard' : isTeamOwner ? '/team-dashboard' : '/'}
+                      className="bg-[#D0620D] px-6 py-2 rounded-full text-white font-medium text-center hover:bg-[#B8540B] transition-all duration-300"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      {isAdmin ? 'DASHBOARD' : isTeamOwner ? 'MY TEAM' : 'ACCOUNT'}
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium text-center"
+                    >
+                      LOGOUT
+                    </button>
+                  </>
+                ) : (
+                  <Link href="/login" className="bg-[#D0620D] px-6 py-2 rounded-full text-white font-medium text-center hover:bg-[#B8540B] transition-all duration-300" onClick={() => setMobileOpen(false)}>LOGIN</Link>
+                )}
               </div>
             </div>
           )}

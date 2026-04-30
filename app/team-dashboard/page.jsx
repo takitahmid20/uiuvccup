@@ -1,18 +1,49 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { teamsService, playersService } from '../../lib/firebaseService';
+import { teamsService, playersService, cricketTeamsService, cricketPlayersService } from '../../lib/firebaseService';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import Navbar from '../../components/Navbar';
+import { Button } from '../../components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 
 export default function TeamOwnerDashboard() {
-  const { currentUser, userRole, userTeam, isTeamOwner, loading: authLoading } = useAuth();
+  const { currentUser, userRole, userTeam, userTeamId, isTeamOwner, loading: authLoading } = useAuth();
   const router = useRouter();
   const [team, setTeam] = useState(null);
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [teamType, setTeamType] = useState('football');
+  const [editingPlayer, setEditingPlayer] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [savingPlayer, setSavingPlayer] = useState(false);
+
+  const FOOTBALL_POSITIONS = ['Goalkeeper (GK)', 'Goalkeeper', 'Defender', 'Midfielder', 'Striker', 'Forward'];
+  const CRICKET_POSITIONS = ['Batsman', 'Bowler', 'All-Rounder', 'Wicket-Keeper', 'Wicket-Keeper Batsman'];
+  const REMARK_OPTIONS = ['Y', 'VY', 'P', 'VP', 'VYP', 'YP'];
+  const FOOTBALL_CATEGORIES = ['A', 'B'];
+  const SEMESTER_OPTIONS = Array.from({ length: 12 }, (_, idx) => {
+    const n = idx + 1;
+    const suffix = n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th';
+    return `${n}${suffix}`;
+  });
+  const DEPARTMENT_OPTIONS = [
+    'CSE',
+    'EEE',
+    'BBA',
+    'Civil',
+    'English',
+    'Economics'
+  ];
+
+  const normalizeTeamName = (value) => (value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
 
   useEffect(() => {
     // Don't redirect while auth is still loading
@@ -29,30 +60,134 @@ export default function TeamOwnerDashboard() {
     }
 
     loadTeamData();
-  }, [currentUser, isTeamOwner, userTeam, authLoading, router]);
+  }, [currentUser, isTeamOwner, userTeam, userTeamId, authLoading, router]);
 
   const loadTeamData = async () => {
     try {
       setLoading(true);
       
       // Load teams and find the user's team
-      const [teamsData, playersData] = await Promise.all([
+      const [teamsData, playersData, cricketTeamsData, cricketPlayersData] = await Promise.all([
         teamsService.getAll(),
-        playersService.getAll()
+        playersService.getAll(),
+        cricketTeamsService.getAll(),
+        cricketPlayersService.getAll()
       ]);
-      
-      const userTeamData = teamsData.find(t => t.name === userTeam);
-      if (userTeamData) {
-        setTeam(userTeamData);
-        
-        // Get players assigned to this team
-        const teamPlayers = playersData.filter(player => player.team === userTeam);
+
+      const footballTeam = teamsData.find(t => t.id === userTeamId)
+        || teamsData.find(t => t.ownerId === currentUser?.uid)
+        || teamsData.find(t => (t.email || '').toLowerCase() === (currentUser?.email || '').toLowerCase())
+        || teamsData.find(t => normalizeTeamName(t.name) === normalizeTeamName(userTeam))
+        || teamsData.find(t => normalizeTeamName(t.teamName) === normalizeTeamName(userTeam));
+
+      if (footballTeam) {
+        setTeamType('football');
+        setTeam(footballTeam);
+        const resolvedTeamName = footballTeam.name || footballTeam.teamName || userTeam;
+        const teamPlayers = playersData.filter(player =>
+          normalizeTeamName(player.team) === normalizeTeamName(resolvedTeamName)
+        );
         setPlayers(teamPlayers);
+        return;
       }
+
+      const cricketTeam = cricketTeamsData.find(t => t.id === userTeamId)
+        || cricketTeamsData.find(t => t.ownerId === currentUser?.uid)
+        || cricketTeamsData.find(t => (t.email || '').toLowerCase() === (currentUser?.email || '').toLowerCase())
+        || cricketTeamsData.find(t => normalizeTeamName(t.name) === normalizeTeamName(userTeam))
+        || cricketTeamsData.find(t => normalizeTeamName(t.teamName) === normalizeTeamName(userTeam));
+
+      if (cricketTeam) {
+        setTeamType('cricket');
+        setTeam(cricketTeam);
+        const resolvedTeamName = cricketTeam.name || cricketTeam.teamName || userTeam;
+        const teamPlayers = cricketPlayersData.filter(player =>
+          normalizeTeamName(player.team) === normalizeTeamName(resolvedTeamName)
+        );
+        setPlayers(teamPlayers);
+        return;
+      }
+
+      setTeam(null);
+      setPlayers([]);
     } catch (error) {
       console.error('Error loading team data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditPlayer = (player) => {
+    setEditingPlayer(player);
+    setEditForm({
+      name: player.name || '',
+      uniId: player.uniId || '',
+      position: player.position || '',
+      category: player.category || '',
+      age: player.age || '',
+      semester: player.semester || '',
+      department: player.department || '',
+      phone: player.phone || '',
+      email: player.email || '',
+      jerseyNumber: player.jerseyNumber || '',
+      basePrice: player.basePrice || '',
+      battingStyle: player.battingStyle || '',
+      bowlingStyle: player.bowlingStyle || ''
+    });
+  };
+
+  const updateEditField = (field, value) => {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const savePlayerChanges = async () => {
+    if (!editingPlayer || !editForm) return;
+
+    try {
+      setSavingPlayer(true);
+      const updateData = teamType === 'cricket'
+        ? {
+            name: editForm.name,
+            uniId: editForm.uniId,
+            position: editForm.position,
+            category: editForm.category || '',
+            semester: editForm.semester || '',
+            department: editForm.department || '',
+            age: editForm.age ? Number(editForm.age) : null,
+            phone: editForm.phone || '',
+            email: editForm.email || '',
+            jerseyNumber: editForm.jerseyNumber ? Number(editForm.jerseyNumber) : null,
+            basePrice: editForm.basePrice ? Number(editForm.basePrice) : null,
+            battingStyle: editForm.battingStyle || '',
+            bowlingStyle: editForm.bowlingStyle || ''
+          }
+        : {
+            name: editForm.name,
+            uniId: editForm.uniId,
+            position: editForm.position,
+            category: editForm.category || '',
+            semester: editForm.semester || '',
+            department: editForm.department || '',
+            age: editForm.age ? Number(editForm.age) : null,
+            phone: editForm.phone || '',
+            email: editForm.email || '',
+            jerseyNumber: editForm.jerseyNumber ? Number(editForm.jerseyNumber) : null,
+            basePrice: editForm.basePrice ? Number(editForm.basePrice) : null
+          };
+
+      if (teamType === 'cricket') {
+        await cricketPlayersService.update(editingPlayer.id, updateData);
+      } else {
+        await playersService.update(editingPlayer.id, updateData);
+      }
+
+      setEditingPlayer(null);
+      setEditForm(null);
+      await loadTeamData();
+    } catch (error) {
+      console.error('Failed to update player:', error);
+    } finally {
+      setSavingPlayer(false);
     }
   };
 
@@ -82,12 +217,33 @@ export default function TeamOwnerDashboard() {
   }
 
   // Calculate position statistics
-  const positionStats = {
+  const footballStats = {
     Goalkeeper: players.filter(p => p.position === 'Goalkeeper').length,
     Defender: players.filter(p => p.position === 'Defender').length,
     Midfielder: players.filter(p => p.position === 'Midfielder').length,
     Forward: players.filter(p => p.position === 'Forward').length
   };
+
+  const cricketStats = {
+    Batsman: players.filter(p => p.position === 'Batsman').length,
+    Bowler: players.filter(p => p.position === 'Bowler').length,
+    'All-Rounder': players.filter(p => p.position === 'All-Rounder').length,
+    'Wicket-Keeper': players.filter(p => p.position === 'Wicket-Keeper' || p.position === 'Wicket-Keeper Batsman').length
+  };
+
+  const statCards = teamType === 'cricket'
+    ? [
+        { label: 'Batsmen', value: cricketStats['Batsman'], icon: '🏏' },
+        { label: 'Bowlers', value: cricketStats['Bowler'], icon: '🎯' },
+        { label: 'All-Rounders', value: cricketStats['All-Rounder'], icon: '⚡' },
+        { label: 'Wicket-Keepers', value: cricketStats['Wicket-Keeper'], icon: '🧤' }
+      ]
+    : [
+        { label: 'Goalkeepers', value: footballStats.Goalkeeper, icon: '🥅' },
+        { label: 'Defenders', value: footballStats.Defender, icon: '🛡️' },
+        { label: 'Midfielders', value: footballStats.Midfielder, icon: '⚽' },
+        { label: 'Forwards', value: footballStats.Forward, icon: '🎯' }
+      ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -142,42 +298,17 @@ export default function TeamOwnerDashboard() {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center">
-              <div className="text-3xl mr-4">🥅</div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Goalkeepers</p>
-                <p className="text-2xl font-bold text-gray-900">{positionStats.Goalkeeper}</p>
+          {statCards.map((stat) => (
+            <div key={stat.label} className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center">
+                <div className="text-3xl mr-4">{stat.icon}</div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center">
-              <div className="text-3xl mr-4">🛡️</div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Defenders</p>
-                <p className="text-2xl font-bold text-gray-900">{positionStats.Defender}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center">
-              <div className="text-3xl mr-4">⚽</div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Midfielders</p>
-                <p className="text-2xl font-bold text-gray-900">{positionStats.Midfielder}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center">
-              <div className="text-3xl mr-4">🎯</div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Forwards</p>
-                <p className="text-2xl font-bold text-gray-900">{positionStats.Forward}</p>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* Players List */}
@@ -222,6 +353,11 @@ export default function TeamOwnerDashboard() {
                         <span className="text-xs text-gray-500">Player</span>
                       )}
                     </div>
+                    <div className="mt-3">
+                      <Button size="sm" variant="outline" onClick={() => handleEditPlayer(player)}>
+                        Edit Player
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -248,6 +384,9 @@ export default function TeamOwnerDashboard() {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Role
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -303,6 +442,11 @@ export default function TeamOwnerDashboard() {
                             <span className="text-sm text-gray-500">Player</span>
                           )}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Button size="sm" variant="outline" onClick={() => handleEditPlayer(player)}>
+                            Edit
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -336,6 +480,135 @@ export default function TeamOwnerDashboard() {
           </Link>
         </div>
       </div>
+
+      <Dialog open={!!editingPlayer} onOpenChange={(open) => !open && setEditingPlayer(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Player Info</DialogTitle>
+          </DialogHeader>
+          {editingPlayer && editForm && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Player Name</Label>
+                  <Input value={editForm.name} onChange={(e) => updateEditField('name', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Student ID</Label>
+                  <Input value={editForm.uniId} onChange={(e) => updateEditField('uniId', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Semester</Label>
+                  <select
+                    value={editForm.semester}
+                    onChange={(e) => updateEditField('semester', e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none"
+                  >
+                    <option value="">Select Semester</option>
+                    {SEMESTER_OPTIONS.map((s) => (
+                      <option key={s} value={s}>{s} Semester</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Department</Label>
+                  <select
+                    value={editForm.department}
+                    onChange={(e) => updateEditField('department', e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none"
+                  >
+                    <option value="">Select Department</option>
+                    {DEPARTMENT_OPTIONS.map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Age</Label>
+                  <Input value={editForm.age} onChange={(e) => updateEditField('age', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Jersey Number</Label>
+                  <Input value={editForm.jerseyNumber} onChange={(e) => updateEditField('jerseyNumber', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Position</Label>
+                  <select
+                    value={editForm.position}
+                    onChange={(e) => updateEditField('position', e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none"
+                  >
+                    <option value="">Select Position</option>
+                    {(teamType === 'cricket' ? CRICKET_POSITIONS : FOOTBALL_POSITIONS).map((pos) => (
+                      <option key={pos} value={pos}>{pos}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label>{teamType === 'cricket' ? 'Remarks' : 'Category'}</Label>
+                  {teamType === 'cricket' ? (
+                    <select
+                      value={editForm.category}
+                      onChange={(e) => updateEditField('category', e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none"
+                    >
+                      <option value="">Select</option>
+                      {REMARK_OPTIONS.map((remark) => (
+                        <option key={remark} value={remark}>{remark}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      value={editForm.category}
+                      onChange={(e) => updateEditField('category', e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none"
+                    >
+                      <option value="">Select Category</option>
+                      {FOOTBALL_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label>Phone</Label>
+                  <Input value={editForm.phone} onChange={(e) => updateEditField('phone', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Email</Label>
+                  <Input value={editForm.email} onChange={(e) => updateEditField('email', e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Base Price (৳)</Label>
+                  <Input value={editForm.basePrice} onChange={(e) => updateEditField('basePrice', e.target.value)} />
+                </div>
+                {teamType === 'cricket' && (
+                  <>
+                    <div className="space-y-1">
+                      <Label>Jersey Number</Label>
+                      <Input value={editForm.jerseyNumber} onChange={(e) => updateEditField('jerseyNumber', e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Batting Style</Label>
+                      <Input value={editForm.battingStyle} onChange={(e) => updateEditField('battingStyle', e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Bowling Style</Label>
+                      <Input value={editForm.bowlingStyle} onChange={(e) => updateEditField('bowlingStyle', e.target.value)} />
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditingPlayer(null)} disabled={savingPlayer}>Cancel</Button>
+                <Button onClick={savePlayerChanges} disabled={savingPlayer}>
+                  {savingPlayer ? 'Saving...' : 'Save'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

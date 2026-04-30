@@ -39,19 +39,10 @@ export default function Login() {
       setError('');
       setLoading(true);
       await login(email, password);
-      
-      // Wait a moment for auth context to update, then redirect based on role
-      setTimeout(() => {
-        if (email === 'uiuvccup@gmail.com') {
-          router.push('/dashboard');
-        } else {
-          router.push('/team-dashboard');
-        }
-      }, 1000);
-      
     } catch (error) {
       setError('Failed to log in. Please check your credentials.');
       console.error('Login error:', error);
+    } finally {
       setLoading(false);
     }
   }

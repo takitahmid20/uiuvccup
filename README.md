@@ -60,6 +60,12 @@ NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
 NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your_upload_preset
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
+
+# Firebase Admin (Server)
+FIREBASE_ADMIN_PROJECT_ID=your_project_id
+FIREBASE_ADMIN_CLIENT_EMAIL=your_service_account_email
+FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_KEY_HERE\n-----END PRIVATE KEY-----\n"
+ADMIN_EMAILS=uiuvccup@gmail.com
 ```
 
 ## Deploy on Vercel
@@ -92,6 +98,20 @@ These are pre-configured in `next.config.mjs`.
 ```bash
 npm run build    # Build for production
 npm start        # Start production server
+```
+
+## Role Setup
+
+After creating your first admin user in Firebase Auth, set admin role:
+
+```bash
+npm run set-admin admin@example.com
+```
+
+To migrate existing team owners from legacy records:
+
+```bash
+npm run migrate-team-owners
 ```
 
 ## Project Structure
