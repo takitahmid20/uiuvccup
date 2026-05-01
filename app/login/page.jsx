@@ -27,7 +27,7 @@ export default function Login() {
       } else if (isTeamOwner) {
         router.push('/team-dashboard');
       } else {
-        router.push('/');
+        router.push('/dashboard');
       }
     }
   }, [currentUser, isAdmin, isTeamOwner, authLoading, router]);

@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
-import { cricketTeamsService, cricketPlayersService } from '../../lib/firebaseService';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { cricketTeamsService, cricketPlayersService, cricketAuctionService } from '../../lib/firebaseService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../lib/useToast';
 import Navbar from '../../components/Navbar';
@@ -19,16 +19,45 @@ const TOURNAMENT_CONFIG = {
   }
 };
 
+const RESULT_DISPLAY_WINDOW_MS = 8000;
+
+const PLAYER_FILTERS = [
+  { key: 'all', label: 'All Players' },
+  { key: 'batter', label: 'Batters' },
+  { key: 'bowler', label: 'Bowlers' },
+  { key: 'wicketkeeper', label: 'Wicketkeepers' }
+];
+
 const normalizePosition = (position) => (position || '').toLowerCase();
 
+const getRoleTokens = (player) => {
+  const raw = `${player?.position || ''} ${player?.category || ''} ${player?.role || ''}`.toLowerCase();
+  return raw.split(/[^a-z0-9]+/).filter(Boolean);
+};
+
 const getPlayerRoles = (player) => {
-  const pos = normalizePosition(player.position);
-  const isWicketkeeper = pos.includes('wicket-keeper') || pos.includes('wicket keeper');
-  const isAllRounder = pos.includes('all-rounder') || pos.includes('all rounder');
-  const isBatter = pos.includes('batsman') || pos.includes('batter') || isAllRounder || (isWicketkeeper && pos.includes('batsman'));
-  const isBowler = pos.includes('bowler') || isAllRounder;
+  const tokens = getRoleTokens(player);
+  const hasToken = (list) => list.some((token) => tokens.includes(token));
+  const hasAllRounderTokens = tokens.includes('all') && tokens.includes('rounder');
+
+  const isWicketkeeper = hasToken(['wk', 'wicketkeeper', 'wicket', 'keeper']);
+  const isAllRounder = hasToken(['allrounder', 'allrounders', 'allround', 'ar']) || hasAllRounderTokens;
+  const isBatter = hasToken(['batsman', 'batter', 'bat', 'batting']) || isAllRounder;
+  const isBowler = hasToken(['bowler', 'bowl', 'bowling', 'spinner', 'spin', 'fast', 'pace', 'medium']) || isAllRounder;
 
   return { isBatter, isBowler, isWicketkeeper };
+};
+
+  const doesPlayerMatchFilter = (player, filter) => {
+  if (!player) return false;
+  if (!filter || filter === 'all') return true;
+  const roles = getPlayerRoles(player);
+
+  if (filter === 'batter') return roles.isBatter;
+  if (filter === 'bowler') return roles.isBowler;
+  if (filter === 'wicketkeeper') return roles.isWicketkeeper;
+
+  return true;
 };
 
 const getAssignedRound = (player) => {
@@ -36,11 +65,12 @@ const getAssignedRound = (player) => {
   return Number.isFinite(value) ? value : 1;
 };
 
-export default function CricketAuction() {
+export default function LiveCricketAuction() {
   const { currentUser, isAdmin } = useAuth();
   const [teams, setTeams] = useState([]);
   const [allPlayers, setAllPlayers] = useState([]);
-  const [unassignedPlayers, setUnassignedPlayers] = useState([]);
+  const [auctionId, setAuctionId] = useState(null);
+  const [auctionState, setAuctionState] = useState(null);
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [bidAmount, setBidAmount] = useState('');
   const [selectedTeam, setSelectedTeam] = useState('');
@@ -49,55 +79,164 @@ export default function CricketAuction() {
   const [highestBid, setHighestBid] = useState(0);
   const [highestBidder, setHighestBidder] = useState('');
   const [auctionTimer, setAuctionTimer] = useState(59);
+  const [timerEndsAt, setTimerEndsAt] = useState(null);
   const [isAuctionActive, setIsAuctionActive] = useState(false);
   const [showAssignmentResult, setShowAssignmentResult] = useState(false);
   const [assignmentResult, setAssignmentResult] = useState(null);
   const [isTimeExpired, setIsTimeExpired] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
+  const [teamsLoaded, setTeamsLoaded] = useState(false);
+  const [playersLoaded, setPlayersLoaded] = useState(false);
+  const [playerFilter, setPlayerFilter] = useState('all');
   const { showToast } = useToast();
+  const showToastRef = useRef(showToast);
+  const lastResultAtRef = useRef(null);
+  const resultTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
+
+  const unassignedPlayers = useMemo(
+    () => allPlayers.filter(p => !p.team),
+    [allPlayers]
+  );
+  const activePlayerFilter = auctionState?.playerFilter || 'all';
+  const activeFilterLabel = PLAYER_FILTERS.find(item => item.key === activePlayerFilter)?.label || 'All Players';
+  const canChangeFilter = isAdmin && !auctionState?.isAuctionActive;
 
   const shuffle = (arr) => arr
     .map(item => ({ item, sort: Math.random() }))
     .sort((a, b) => a.sort - b.sort)
     .map(({ item }) => item);
 
-  useEffect(() => {
-    loadAuctionData();
-  }, []);
+  const getTimestampMs = (value) => {
+    if (!value) return null;
+    if (typeof value === 'number') return value;
+    if (value instanceof Date) return value.getTime();
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    return null;
+  };
 
   useEffect(() => {
-    let interval;
-    if (isAuctionActive && auctionTimer > 0) {
-      interval = setInterval(() => {
-        setAuctionTimer(prev => prev - 1);
-      }, 1000);
-    } else if (auctionTimer === 0 && isAuctionActive) {
-      setIsTimeExpired(true);
-    }
-    return () => clearInterval(interval);
-  }, [isAuctionActive, auctionTimer]);
+    let unsubTeams;
+    let unsubPlayers;
+    let isMounted = true;
 
-  const loadAuctionData = async () => {
-    try {
-      setLoading(true);
-      const [teamsData, playersData] = await Promise.all([
-        cricketTeamsService.getAll(),
-        cricketPlayersService.getAll()
-      ]);
+    setLoading(true);
+
+    unsubTeams = cricketTeamsService.onAll((teamsData) => {
+      if (!isMounted) return;
       setTeams(teamsData.map(team => ({
         ...team,
         totalBalance: team.totalBalance ?? TOURNAMENT_CONFIG.totalBudget
       })));
+      setTeamsLoaded(true);
+    });
+
+    unsubPlayers = cricketPlayersService.onAll((playersData) => {
+      if (!isMounted) return;
       setAllPlayers(playersData);
-      const unassigned = playersData.filter(p => !p.team);
-      setUnassignedPlayers(shuffle(unassigned));
-      setCurrentPlayerIndex(0);
-    } catch (error) {
-      showToast('Failed to load auction data', 'error');
-    } finally {
+      setPlayersLoaded(true);
+    });
+
+    const initAuction = async () => {
+      try {
+        const activeAuction = await cricketAuctionService.getActive();
+        if (!isMounted) return;
+        if (activeAuction) {
+          setAuctionId(activeAuction.id);
+          setAuctionState(activeAuction);
+        }
+      } catch (error) {
+        showToastRef.current?.('Failed to load auction state', 'error');
+      }
+    };
+
+    initAuction();
+
+    return () => {
+      isMounted = false;
+      if (unsubTeams) unsubTeams();
+      if (unsubPlayers) unsubPlayers();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (teamsLoaded && playersLoaded) {
       setLoading(false);
     }
-  };
+  }, [teamsLoaded, playersLoaded]);
+
+  useEffect(() => {
+    if (!auctionId) return undefined;
+    const unsubAuction = cricketAuctionService.onAuctionUpdate(auctionId, setAuctionState);
+    const unsubBids = cricketAuctionService.onBidUpdate(auctionId, setBidHistory);
+
+    return () => {
+      if (unsubAuction) unsubAuction();
+      if (unsubBids) unsubBids();
+    };
+  }, [auctionId]);
+
+  useEffect(() => {
+    if (!auctionState) return;
+    setCurrentRound(auctionState.round ?? 1);
+    setCurrentPlayerIndex(Number.isFinite(auctionState.currentIndex) ? auctionState.currentIndex : 0);
+    setHighestBid(auctionState.highestBid ?? 0);
+    setHighestBidder(auctionState.highestBidder ?? '');
+    setIsAuctionActive(Boolean(auctionState.isAuctionActive));
+    setTimerEndsAt(getTimestampMs(auctionState.timerEndsAt));
+  }, [auctionState]);
+
+  useEffect(() => {
+    if (!auctionState?.lastResult || !auctionState?.lastResultAt) return;
+    const lastResultAt = getTimestampMs(auctionState.lastResultAt);
+    if (!lastResultAt || lastResultAtRef.current === lastResultAt) return;
+    if (Date.now() - lastResultAt > RESULT_DISPLAY_WINDOW_MS) return;
+    lastResultAtRef.current = lastResultAt;
+
+    const result = auctionState.lastResult;
+    const playerName = result.playerName || result.player?.name || '';
+    const normalized = {
+      ...result,
+      player: result.player || { id: result.playerId, name: playerName }
+    };
+
+    setAssignmentResult(normalized);
+    setShowAssignmentResult(true);
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+    }
+    resultTimeoutRef.current = setTimeout(() => {
+      setShowAssignmentResult(false);
+    }, 3000);
+  }, [auctionState]);
+
+  useEffect(() => () => {
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAuctionActive || !timerEndsAt) {
+      setAuctionTimer(59);
+      setIsTimeExpired(false);
+      return undefined;
+    }
+
+    const tick = () => {
+      const remainingMs = timerEndsAt - Date.now();
+      const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+      setAuctionTimer(remainingSec);
+      setIsTimeExpired(remainingSec === 0);
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [isAuctionActive, timerEndsAt]);
 
   const teamStats = useMemo(() => {
     const stats = {};
@@ -159,16 +298,111 @@ export default function CricketAuction() {
 
   const canAdvanceRound = teams.length > 0 && teams.every((team) => isRoundCompleteForTeam(team.name, currentRound));
 
-  const startAuction = () => {
+  const getNextAvailableIndex = (queue, startIndex, filter) => {
+    if (!Array.isArray(queue)) return -1;
+    for (let i = startIndex; i < queue.length; i += 1) {
+      const player = allPlayers.find(p => p.id === queue[i]);
+      if (player && !player.team && doesPlayerMatchFilter(player, filter)) {
+        return i;
+      }
+    }
+    return -1;
+  };
+
+  const startAuction = async () => {
     if (!currentUser || !isAdmin) {
       showToast('Only administrators can start the auction', 'error');
       return;
     }
-    setIsAuctionActive(true);
-    setAuctionTimer(59);
-    setHighestBid(0);
-    setHighestBidder('');
-    setIsTimeExpired(false);
+
+    if (unassignedPlayers.length === 0) {
+      showToast('No unassigned players available.', 'warning');
+      return;
+    }
+
+    const filterToUse = playerFilter || 'all';
+    const eligiblePlayers = unassignedPlayers.filter(player => doesPlayerMatchFilter(player, filterToUse));
+    if (eligiblePlayers.length === 0) {
+      showToast('No unassigned players match selected filter.', 'warning');
+      return;
+    }
+
+    const timerEndsAtValue = new Date(Date.now() + 59000);
+
+    try {
+      if (!auctionId) {
+        const queue = shuffle(eligiblePlayers.map(player => player.id));
+        const nextIndex = getNextAvailableIndex(queue, 0, filterToUse);
+        const currentPlayerId = nextIndex >= 0 ? queue[nextIndex] : null;
+
+        if (!currentPlayerId) {
+          showToast('No available players in queue.', 'warning');
+          return;
+        }
+
+        const auctionData = {
+          status: 'active',
+          isAuctionActive: true,
+          round: 1,
+          playerFilter: filterToUse,
+          playerQueue: queue,
+          currentIndex: nextIndex,
+          currentPlayerId,
+          highestBid: 0,
+          highestBidder: '',
+          timerEndsAt: timerEndsAtValue,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        const newAuctionId = await cricketAuctionService.create(auctionData);
+        setAuctionId(newAuctionId);
+        setAuctionState({ id: newAuctionId, ...auctionData });
+        return;
+      }
+
+      const existingFilter = auctionState?.playerFilter ?? 'all';
+      const shouldRebuildQueue = !auctionState?.isAuctionActive && (existingFilter !== filterToUse);
+      const currentFilter = shouldRebuildQueue ? filterToUse : existingFilter;
+      const queue = (auctionState?.playerQueue?.length && !shouldRebuildQueue)
+        ? auctionState.playerQueue
+        : shuffle(eligiblePlayers.map(player => player.id));
+      const startIndex = Number.isFinite(auctionState?.currentIndex) ? auctionState.currentIndex : 0;
+      let nextIndex = startIndex;
+      let currentPlayerId = auctionState?.currentPlayerId;
+
+      if (shouldRebuildQueue) {
+        nextIndex = getNextAvailableIndex(queue, 0, currentFilter);
+        currentPlayerId = nextIndex >= 0 ? queue[nextIndex] : null;
+      } else if (!currentPlayerId) {
+        nextIndex = getNextAvailableIndex(queue, startIndex, currentFilter);
+        currentPlayerId = nextIndex >= 0 ? queue[nextIndex] : null;
+      }
+
+      if (!currentPlayerId) {
+        showToast('No available players in queue.', 'warning');
+        return;
+      }
+
+      const updateData = {
+        isAuctionActive: true,
+        highestBid: 0,
+        highestBidder: '',
+        timerEndsAt: timerEndsAtValue,
+        currentIndex: nextIndex,
+        currentPlayerId,
+        playerFilter: currentFilter,
+        updatedAt: new Date()
+      };
+
+      if (!auctionState?.playerQueue?.length || shouldRebuildQueue) {
+        updateData.playerQueue = queue;
+      }
+
+      await cricketAuctionService.update(auctionId, updateData);
+    } catch (error) {
+      showToast('Failed to start auction', 'error');
+    }
   };
 
   const getTeamBudgetInfo = (teamName, extraPlayers = 1) => {
@@ -263,7 +497,7 @@ export default function CricketAuction() {
     return { ok: true, maxAllowedBid: budgetInfo.maxAllowedBid };
   };
 
-  const advanceRound = () => {
+  const advanceRound = async () => {
     if (!currentUser || !isAdmin) {
       showToast('Only administrators can advance rounds.', 'error');
       return;
@@ -274,29 +508,59 @@ export default function CricketAuction() {
       return;
     }
 
+    if (!auctionId) {
+      showToast('Start the auction before advancing rounds.', 'error');
+      return;
+    }
+
     const nextRound = Math.min(currentRound + 1, TOURNAMENT_CONFIG.totalRounds);
-    setCurrentRound(nextRound);
-    setIsAuctionActive(false);
-    setHighestBid(0);
-    setHighestBidder('');
-    setBidAmount('');
-    setSelectedTeam('');
-    setAuctionTimer(59);
-    setIsTimeExpired(false);
+
+    try {
+      await cricketAuctionService.update(auctionId, {
+        round: nextRound,
+        isAuctionActive: false,
+        highestBid: 0,
+        highestBidder: '',
+        timerEndsAt: null,
+        updatedAt: new Date()
+      });
+      setBidAmount('');
+      setSelectedTeam('');
+    } catch (error) {
+      showToast('Failed to advance round', 'error');
+    }
   };
 
   const confirmPlayerAssignment = async () => {
-    const currentPlayer = unassignedPlayers[currentPlayerIndex];
-    if (!currentPlayer || !highestBidder) {
-      setAssignmentResult({
-        player: currentPlayer,
+    if (!auctionId) {
+      showToast('Start the auction before confirming.', 'warning');
+      return;
+    }
+
+    if (!currentPlayer) {
+      showToast('No active player selected.', 'warning');
+      return;
+    }
+
+    if (!highestBidder) {
+      const resultPayload = {
+        type: 'skipped',
+        playerId: currentPlayer.id,
+        playerName: currentPlayer.name,
         team: null,
-        amount: 0,
-        type: 'skipped'
-      });
-      setShowAssignmentResult(true);
+        amount: 0
+      };
+
+      try {
+        await cricketAuctionService.update(auctionId, {
+          lastResult: resultPayload,
+          lastResultAt: new Date()
+        });
+      } catch (error) {
+        showToast('Failed to update auction result', 'error');
+      }
+
       setTimeout(() => {
-        setShowAssignmentResult(false);
         moveToNextPlayer();
       }, 3000);
       return;
@@ -330,22 +594,22 @@ export default function CricketAuction() {
         });
       }
 
-      setAllPlayers(prev => prev.map(player => (
-        player.id === currentPlayer.id
-          ? { ...player, team: highestBidder, soldPrice: highestBid, assignedRound: currentRound }
-          : player
-      )));
-
-      setAssignmentResult({
-        player: currentPlayer,
-        team: highestBidder,
-        amount: highestBid,
-        type: 'sold'
-      });
-      setShowAssignmentResult(true);
+      try {
+        await cricketAuctionService.update(auctionId, {
+          lastResult: {
+            type: 'sold',
+            playerId: currentPlayer.id,
+            playerName: currentPlayer.name,
+            team: highestBidder,
+            amount: highestBid
+          },
+          lastResultAt: new Date()
+        });
+      } catch (error) {
+        showToast('Failed to update auction result', 'error');
+      }
 
       setTimeout(() => {
-        setShowAssignmentResult(false);
         moveToNextPlayer();
       }, 3000);
     } catch (error) {
@@ -353,15 +617,74 @@ export default function CricketAuction() {
     }
   };
 
-  const moveToNextPlayer = () => {
-    setIsAuctionActive(false);
-    setHighestBid(0);
-    setHighestBidder('');
-    setBidAmount('');
-    setSelectedTeam('');
-    setAuctionTimer(59);
-    setIsTimeExpired(false);
-    setUnassignedPlayers(prev => prev.filter((_, index) => index !== currentPlayerIndex));
+  const moveToNextPlayer = async () => {
+    if (!auctionId || !auctionState?.playerQueue?.length) {
+      showToast('No auction queue found.', 'warning');
+      return;
+    }
+
+    const queue = auctionState.playerQueue;
+    const startIndex = Number.isFinite(auctionState.currentIndex) ? auctionState.currentIndex + 1 : 0;
+    const currentFilter = auctionState?.playerFilter || 'all';
+    const nextIndex = getNextAvailableIndex(queue, startIndex, currentFilter);
+    const nextPlayerId = nextIndex >= 0 ? queue[nextIndex] : null;
+
+    try {
+      await cricketAuctionService.update(auctionId, {
+        isAuctionActive: false,
+        highestBid: 0,
+        highestBidder: '',
+        timerEndsAt: null,
+        currentIndex: nextIndex >= 0 ? nextIndex : (auctionState.currentIndex ?? 0),
+        currentPlayerId: nextPlayerId,
+        status: nextPlayerId ? 'active' : 'completed',
+        updatedAt: new Date()
+      });
+      setBidAmount('');
+      setSelectedTeam('');
+      setIsTimeExpired(false);
+    } catch (error) {
+      showToast('Failed to move to next player', 'error');
+    }
+  };
+
+  const applyPlayerFilter = async (filterKey) => {
+    setPlayerFilter(filterKey);
+
+    if (!isAdmin || !auctionId || auctionState?.isAuctionActive) return;
+
+    const filterToUse = filterKey || 'all';
+    const eligiblePlayers = unassignedPlayers.filter(player => doesPlayerMatchFilter(player, filterToUse));
+
+    if (eligiblePlayers.length === 0) {
+      showToast('No unassigned players match selected filter.', 'warning');
+      return;
+    }
+
+    const queue = shuffle(eligiblePlayers.map(player => player.id));
+    const nextIndex = getNextAvailableIndex(queue, 0, filterToUse);
+    const currentPlayerId = nextIndex >= 0 ? queue[nextIndex] : null;
+
+    if (!currentPlayerId) {
+      showToast('No available players in queue.', 'warning');
+      return;
+    }
+
+    try {
+      await cricketAuctionService.update(auctionId, {
+        playerFilter: filterToUse,
+        playerQueue: queue,
+        currentIndex: nextIndex,
+        currentPlayerId,
+        highestBid: 0,
+        highestBidder: '',
+        timerEndsAt: null,
+        isAuctionActive: false,
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      showToast('Failed to update player filter.', 'error');
+    }
   };
 
   const handlePlaceBid = async () => {
@@ -369,7 +692,10 @@ export default function CricketAuction() {
       showToast('Only administrators can place bids', 'error');
       return;
     }
-    const currentPlayer = unassignedPlayers[currentPlayerIndex];
+    if (!auctionId) {
+      showToast('Start the auction before bidding.', 'warning');
+      return;
+    }
     if (!bidAmount || !selectedTeam || !currentPlayer || !isAuctionActive) return;
 
     const bidAmountNum = parseInt(bidAmount);
@@ -389,26 +715,41 @@ export default function CricketAuction() {
       return;
     }
 
-    const newBid = {
+    const bidPayload = {
       team: selectedTeam,
       amount: bidAmountNum,
-      time: new Date().toLocaleTimeString(),
+      playerId: currentPlayer.id,
       player: currentPlayer.name,
+      time: new Date().toLocaleTimeString(),
       round: currentRound
     };
 
-    setBidHistory(prev => [newBid, ...prev]);
-    setHighestBid(bidAmountNum);
-    setHighestBidder(selectedTeam);
-    setBidAmount('');
-    setSelectedTeam('');
+    const auctionUpdates = {};
+    if (timerEndsAt && isAuctionActive) {
+      const remainingMs = timerEndsAt - Date.now();
+      const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+      if (remainingSec > 0 && remainingSec < 10) {
+        auctionUpdates.timerEndsAt = new Date(Date.now() + (remainingSec + 5) * 1000);
+      }
+    }
 
-    if (auctionTimer < 10 && auctionTimer > 0) {
-      setAuctionTimer(prev => Math.min(prev + 5, 59));
+    try {
+      await cricketAuctionService.placeBid(auctionId, bidPayload, auctionUpdates);
+      setBidAmount('');
+      setSelectedTeam('');
+    } catch (error) {
+      showToast('Failed to place bid', 'error');
     }
   };
 
-  const currentPlayer = unassignedPlayers[currentPlayerIndex];
+  const playerQueue = auctionState?.playerQueue || [];
+  const queueLength = playerQueue.length || unassignedPlayers.length;
+  const currentPlayer = useMemo(() => {
+    const playerId = auctionState?.currentPlayerId
+      || (Number.isFinite(auctionState?.currentIndex) ? playerQueue[auctionState.currentIndex] : null);
+    if (!playerId) return null;
+    return allPlayers.find(p => p.id === playerId) || null;
+  }, [auctionState, playerQueue, allPlayers]);
   const basePrice = currentPlayer?.basePrice || TOURNAMENT_CONFIG.basePrice;
   const minBaseBid = Math.max(basePrice, TOURNAMENT_CONFIG.basePrice);
   const requiredMinBid = highestBid > 0 ? (highestBid + 1) : minBaseBid;
@@ -459,6 +800,26 @@ export default function CricketAuction() {
       {/* Current Auction */}
       <section className="py-16" style={{ backgroundColor: '#0A0D13' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-400">Filter:</span>
+            {PLAYER_FILTERS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => applyPlayerFilter(item.key)}
+                disabled={!canChangeFilter}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  playerFilter === item.key
+                    ? 'bg-[#D0620D] text-white'
+                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700'
+                } ${!canChangeFilter ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {item.label}
+              </button>
+            ))}
+            <span className="text-xs text-gray-500">Active: {activeFilterLabel}</span>
+          </div>
+
           {loading ? (
             <div className="text-center py-16">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#D0620D] mx-auto mb-4"></div>
@@ -486,11 +847,28 @@ export default function CricketAuction() {
                     <div className="text-6xl mb-4">⏭️</div>
                     <h2 className="text-3xl font-bold text-white mb-4">SKIPPED</h2>
                     <div className="space-y-3">
-                      <p className="text-xl text-white font-semibold">{assignmentResult.player?.name || 'Player'}</p>
+                      <p className="text-xl text-white font-semibold">{assignmentResult.player.name}</p>
                       <p className="text-yellow-300">No bids received</p>
                       <p className="text-gray-400">Moving to next player...</p>
                     </div>
                   </div>
+                )}
+              </div>
+            </div>
+          ) : !auctionState ? (
+            <div className="text-center py-16">
+              <div className="max-w-md mx-auto border border-gray-700 rounded-2xl p-8">
+                <div className="text-5xl mb-4">🏏</div>
+                <h2 className="text-2xl font-bold text-white mb-2">Auction Not Started</h2>
+                <p className="text-gray-300">Admin can start the auction to begin live bidding.</p>
+                {isAdmin && (
+                  <button
+                    onClick={startAuction}
+                    disabled={!currentUser}
+                    className="mt-6 w-full bg-[#D0620D] text-white px-8 py-5 rounded-xl font-bold text-xl hover:bg-[#B8540B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                  >
+                    🏏 Start Auction
+                  </button>
                 )}
               </div>
             </div>
@@ -516,7 +894,7 @@ export default function CricketAuction() {
                       <div className={`text-4xl font-bold ${auctionTimer <= 10 && !isTimeExpired ? 'text-red-500 animate-pulse' : isTimeExpired ? 'text-yellow-500' : 'text-[#D0620D]'}`}>
                         {isAuctionActive
                           ? (isTimeExpired ? 'EXPIRED' : `${auctionTimer}s`)
-                          : `${currentPlayerIndex + 1}/${unassignedPlayers.length}`}
+                          : `${currentPlayerIndex + 1}/${queueLength || 0}`}
                       </div>
                       <div className="text-gray-300 text-sm">
                         {isAuctionActive ? (isTimeExpired ? 'Bidding continues' : 'Time Left') : 'Player Progress'}
@@ -751,15 +1129,20 @@ export default function CricketAuction() {
                     {bidHistory.length === 0 ? (
                       <p className="text-gray-400 text-sm">No bids yet</p>
                     ) : (
-                      bidHistory.map((bid, i) => (
+                      bidHistory.map((bid, i) => {
+                        const bidTime = bid.time
+                          || (bid.timestamp?.toDate ? bid.timestamp.toDate().toLocaleTimeString() : '');
+
+                        return (
                         <div key={i} className="flex justify-between items-center p-3 bg-gray-800 rounded-lg">
                           <div>
                             <div className="text-white font-medium">{bid.team}</div>
-                            <div className="text-xs text-gray-400">{bid.player} • R{bid.round} • {bid.time}</div>
+                            <div className="text-xs text-gray-400">{bid.player} • R{bid.round} • {bidTime}</div>
                           </div>
                           <div className="text-[#D0620D] font-bold text-lg">৳{bid.amount.toLocaleString()}</div>
                         </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>

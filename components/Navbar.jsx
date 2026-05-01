@@ -2,9 +2,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { logger } from '../lib/logger';
-import { Button } from './ui/button';
+import { Button, buttonVariants } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import { Menu } from 'lucide-react';
 import {
@@ -27,6 +27,7 @@ const navLinkClass =
 export default function Navbar() {
   const { currentUser, isAdmin, isTeamOwner, logout, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   logger.log('🧭 Navbar render', { loading, isAdmin, isTeamOwner });
 
@@ -42,13 +43,18 @@ export default function Navbar() {
   const publicLinks = [
     { label: 'Home', href: '/' },
     { label: 'Teams', href: '/teams' },
-    { label: 'About', href: '/about' },
+    { label: 'Players', href: '/players' },
+    { label: 'Auction', href: '/auction' },
   ];
 
   const adminLinks = [
     { label: 'Dashboard', href: '/dashboard' },
-    { label: 'Auction', href: '/auction' },
   ];
+
+  const isActive = (href) => {
+    if (href === '/') return pathname === '/';
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   return (
     <nav className="fixed top-0 w-full z-50 p-3 sm:p-4">
@@ -74,7 +80,10 @@ export default function Navbar() {
               <NavigationMenuList className="gap-1">
                 {publicLinks.map(({ label, href }) => (
                   <NavigationMenuItem key={href}>
-                    <NavigationMenuLink href={href} className={navLinkClass}>
+                    <NavigationMenuLink
+                      href={href}
+                      className={`${navLinkClass} ${isActive(href) ? 'text-[#D0620D] bg-orange-50' : ''}`}
+                    >
                       {label}
                     </NavigationMenuLink>
                   </NavigationMenuItem>
@@ -82,7 +91,10 @@ export default function Navbar() {
 
                 {isAdmin && adminLinks.map(({ label, href }) => (
                   <NavigationMenuItem key={href}>
-                    <NavigationMenuLink href={href} className={navLinkClass}>
+                    <NavigationMenuLink
+                      href={href}
+                      className={`${navLinkClass} ${isActive(href) ? 'text-[#D0620D] bg-orange-50' : ''}`}
+                    >
                       {label}
                     </NavigationMenuLink>
                   </NavigationMenuItem>
@@ -90,7 +102,10 @@ export default function Navbar() {
 
                 {isTeamOwner && (
                   <NavigationMenuItem>
-                    <NavigationMenuLink href="/team-dashboard" className={navLinkClass}>
+                    <NavigationMenuLink
+                      href="/team-dashboard"
+                      className={`${navLinkClass} ${isActive('/team-dashboard') ? 'text-[#D0620D] bg-orange-50' : ''}`}
+                    >
                       My Team
                     </NavigationMenuLink>
                   </NavigationMenuItem>
@@ -103,9 +118,9 @@ export default function Navbar() {
               {loading ? (
                 <Skeleton className="h-9 w-20 rounded-lg" />
               ) : !currentUser ? (
-                <Button asChild size="sm">
-                  <Link href="/login">Login</Link>
-                </Button>
+                <Link href="/login" className={buttonVariants({ size: 'sm' })}>
+                  Login
+                </Link>
               ) : (
                 <div className="flex items-center gap-3">
                   <div className="text-right">
@@ -162,7 +177,11 @@ export default function Navbar() {
                     <Link
                       key={href}
                       href={href}
-                      className="px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:text-[#D0620D] hover:bg-orange-50 transition-colors"
+                      className={`px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                        isActive(href)
+                          ? 'text-[#D0620D] bg-orange-50'
+                          : 'text-gray-700 hover:text-[#D0620D] hover:bg-orange-50'
+                      }`}
                     >
                       {label}
                     </Link>
@@ -176,7 +195,11 @@ export default function Navbar() {
                         <Link
                           key={href}
                           href={href}
-                          className="px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:text-[#D0620D] hover:bg-orange-50 transition-colors"
+                          className={`px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                            isActive(href)
+                              ? 'text-[#D0620D] bg-orange-50'
+                              : 'text-gray-700 hover:text-[#D0620D] hover:bg-orange-50'
+                          }`}
                         >
                           {label}
                         </Link>
@@ -187,7 +210,11 @@ export default function Navbar() {
                   {isTeamOwner && (
                     <Link
                       href="/team-dashboard"
-                      className="px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:text-[#D0620D] hover:bg-orange-50 transition-colors"
+                      className={`px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                        isActive('/team-dashboard')
+                          ? 'text-[#D0620D] bg-orange-50'
+                          : 'text-gray-700 hover:text-[#D0620D] hover:bg-orange-50'
+                      }`}
                     >
                       My Team
                     </Link>
@@ -197,9 +224,9 @@ export default function Navbar() {
                     {loading ? (
                       <Skeleton className="h-10 w-full rounded-lg" />
                     ) : !currentUser ? (
-                      <Button asChild className="w-full">
-                        <Link href="/login">Login</Link>
-                      </Button>
+                      <Link href="/login" className={`${buttonVariants({})} w-full`}>
+                        Login
+                      </Link>
                     ) : (
                       <div className="space-y-3">
                         <div className="px-1">

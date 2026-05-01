@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
 import { playersService, teamsService } from '../../lib/firebaseService';
+import Navbar from '../../components/Navbar';
 
 export default function PublicPlayersPage() {
   const [players, setPlayers] = useState([]);
@@ -55,22 +54,9 @@ export default function PublicPlayersPage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#0A0D13' }}>
-      {/* Simple top bar */}
-      <nav className="sticky top-0 z-40 w-full bg-white/10 backdrop-blur supports-[backdrop-filter]:bg-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Image src="/assets/uiuvccuplogo.png" alt="UIU VC Cup" width={32} height={32} className="rounded-full" />
-            <Link href="/" className="text-white font-semibold">UIU VC Cup</Link>
-          </div>
-          <div className="hidden md:flex items-center space-x-6">
-            <Link href="/" className="text-gray-200 hover:text-white">Home</Link>
-            <Link href="/teams" className="text-gray-200 hover:text-white">Teams</Link>
-            <Link href="/auction" className="text-gray-200 hover:text-white">Auction</Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
         <h1 className="text-3xl font-bold text-white mb-4">All Players</h1>
         <p className="text-gray-400 mb-6">Browse and filter all registered players.</p>
 

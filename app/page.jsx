@@ -3,23 +3,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { teamsService, playersService } from '../lib/firebaseService';
-import { useAuth } from '../contexts/AuthContext';
+import Navbar from '../components/Navbar';
 
 export default function Home() {
-  const { currentUser, isAdmin, isTeamOwner, logout, loading: authLoading } = useAuth();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error('Logout failed:', error);
-    } finally {
-      setMobileOpen(false);
-    }
-  };
 
   // Load teams and calculate player counts
   useEffect(() => {
@@ -73,105 +61,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-lg mx-4 lg:mx-8">
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center space-x-3">
-                <Image
-                  src="/assets/uiuvccuplogo.png"
-                  alt="UIU VC Cup Logo"
-                  width={60}
-                  height={60}
-                  className="rounded-full"
-                />
-                {/* <span className="text-xl font-bold text-black">
-                  UIU VC Cup
-                </span> */}
-              </div>
-              <div className="hidden md:flex items-center space-x-8">
-                <Link href="/" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">HOME</Link>
-                <Link href="/teams" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">TEAMS</Link>
-                <Link href="/players" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">PLAYERS</Link>
-                <Link href="/auction" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">AUCTION</Link>
-                <Link href="/about" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">ABOUT</Link>
-                {authLoading ? (
-                  <span className="text-gray-400 text-sm">Loading...</span>
-                ) : currentUser ? (
-                  <div className="flex items-center space-x-4">
-                    <Link
-                      href={isAdmin ? '/dashboard' : isTeamOwner ? '/team-dashboard' : '/'}
-                      className="bg-[#D0620D] px-6 py-2 rounded-full text-white font-medium hover:bg-[#B8540B] transition-all duration-300"
-                    >
-                      {isAdmin ? 'DASHBOARD' : isTeamOwner ? 'MY TEAM' : 'ACCOUNT'}
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium"
-                    >
-                      LOGOUT
-                    </button>
-                  </div>
-                ) : (
-                  <Link
-                    href="/login"
-                    className="bg-[#D0620D] px-6 py-2 rounded-full text-white font-medium hover:bg-[#B8540B] transition-all duration-300"
-                  >
-                    LOGIN
-                  </Link>
-                )}
-              </div>
-              
-              {/* Mobile menu button */}
-              <div className="md:hidden">
-                <button
-                  aria-label="Toggle menu"
-                  onClick={() => setMobileOpen((v) => !v)}
-                  className="text-gray-700 hover:text-[#D0620D] transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-          {/* Mobile dropdown */}
-          {mobileOpen && (
-            <div className="md:hidden border-t border-gray-200 px-6 py-4">
-              <div className="flex flex-col space-y-3">
-                <Link href="/" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium" onClick={() => setMobileOpen(false)}>HOME</Link>
-                <Link href="/teams" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium" onClick={() => setMobileOpen(false)}>TEAMS</Link>
-                <Link href="/players" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium" onClick={() => setMobileOpen(false)}>PLAYERS</Link>
-                <Link href="/auction" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium" onClick={() => setMobileOpen(false)}>AUCTION</Link>
-                <Link href="/about" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium" onClick={() => setMobileOpen(false)}>ABOUT</Link>
-                {authLoading ? (
-                  <span className="text-gray-400 text-sm">Loading...</span>
-                ) : currentUser ? (
-                  <>
-                    <Link
-                      href={isAdmin ? '/dashboard' : isTeamOwner ? '/team-dashboard' : '/'}
-                      className="bg-[#D0620D] px-6 py-2 rounded-full text-white font-medium text-center hover:bg-[#B8540B] transition-all duration-300"
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      {isAdmin ? 'DASHBOARD' : isTeamOwner ? 'MY TEAM' : 'ACCOUNT'}
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium text-center"
-                    >
-                      LOGOUT
-                    </button>
-                  </>
-                ) : (
-                  <Link href="/login" className="bg-[#D0620D] px-6 py-2 rounded-full text-white font-medium text-center hover:bg-[#B8540B] transition-all duration-300" onClick={() => setMobileOpen(false)}>LOGIN</Link>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center overflow-hidden">

@@ -1,5 +1,5 @@
-import Image from 'next/image';
 import Link from 'next/link';
+import Navbar from '../../components/Navbar';
 
 export default function Blog() {
   const blogPosts = [
@@ -63,40 +63,7 @@ export default function Blog() {
 
   return (
     <div className="min-h-screen text-white" style={{ backgroundColor: '#0A0D13' }}>
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-lg mx-4 lg:mx-8">
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center space-x-3">
-                <Image
-                  src="/assets/uiuvccuplogo.png"
-                  alt="UIU VC Cup Logo"
-                  width={40}
-                  height={40}
-                  className="rounded-full"
-                />
-                <span className="text-xl font-bold text-black">
-                  UIU VC Cup
-                </span>
-              </div>
-              <div className="hidden md:flex items-center space-x-8">
-                <Link href="/" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">HOME</Link>
-                <Link href="/teams" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">TEAMS</Link>
-                <Link href="/auction" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">AUCTION</Link>
-                <Link href="/about" className="text-gray-700 hover:text-[#D0620D] transition-colors font-medium">ABOUT</Link>
-                <Link href="/blog" className="text-[#D0620D] font-medium">BLOG</Link>
-                <Link 
-                  href="/login" 
-                  className="bg-[#D0620D] px-6 py-2 rounded-full text-white font-medium hover:bg-[#B8540B] transition-all duration-300"
-                >
-                  LOGIN
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Header */}
       <section className="pt-32 pb-16" style={{ backgroundColor: '#0A0D13' }}>
