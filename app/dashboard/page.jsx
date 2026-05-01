@@ -51,7 +51,7 @@ const sports = [
     links: [
       { label: 'Team Management', href: '/dashboard/cricket/team', icon: Users },
       { label: 'Player Management', href: '/dashboard/cricket/player', icon: UserCheck },
-      { label: 'Auction', href: '/cricket-auction', icon: Gavel },
+      { label: 'Auction', href: '/live-cricket-auction', icon: Gavel },
     ],
     stats: [
       { label: 'Status', value: 'Setup Phase' },

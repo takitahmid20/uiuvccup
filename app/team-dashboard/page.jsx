@@ -24,7 +24,6 @@ export default function TeamOwnerDashboard() {
 
   const FOOTBALL_POSITIONS = ['Goalkeeper (GK)', 'Goalkeeper', 'Defender', 'Midfielder', 'Striker', 'Forward'];
   const CRICKET_POSITIONS = ['Batsman', 'Bowler', 'All-Rounder', 'Wicket-Keeper', 'Wicket-Keeper Batsman'];
-  const REMARK_OPTIONS = ['Y', 'VY', 'P', 'VP', 'VYP', 'YP'];
   const FOOTBALL_CATEGORIES = ['A', 'B'];
   const SEMESTER_OPTIONS = Array.from({ length: 12 }, (_, idx) => {
     const n = idx + 1;
@@ -150,7 +149,6 @@ export default function TeamOwnerDashboard() {
             name: editForm.name,
             uniId: editForm.uniId,
             position: editForm.position,
-            category: editForm.category || '',
             semester: editForm.semester || '',
             department: editForm.department || '',
             age: editForm.age ? Number(editForm.age) : null,
@@ -473,7 +471,7 @@ export default function TeamOwnerDashboard() {
             View All Teams
           </Link>
           <Link 
-            href="/auction" 
+            href={teamType === 'cricket' ? '/live-cricket-auction' : '/auction'}
             className="w-full sm:w-auto text-center bg-[#D0620D] text-white px-6 py-3 rounded-lg hover:bg-[#B8540B] transition-colors"
           >
             View Auction
@@ -544,20 +542,9 @@ export default function TeamOwnerDashboard() {
                     ))}
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <Label>{teamType === 'cricket' ? 'Remarks' : 'Category'}</Label>
-                  {teamType === 'cricket' ? (
-                    <select
-                      value={editForm.category}
-                      onChange={(e) => updateEditField('category', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none"
-                    >
-                      <option value="">Select</option>
-                      {REMARK_OPTIONS.map((remark) => (
-                        <option key={remark} value={remark}>{remark}</option>
-                      ))}
-                    </select>
-                  ) : (
+                {teamType !== 'cricket' && (
+                  <div className="space-y-1">
+                    <Label>Category</Label>
                     <select
                       value={editForm.category}
                       onChange={(e) => updateEditField('category', e.target.value)}
@@ -568,8 +555,8 @@ export default function TeamOwnerDashboard() {
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
                     </select>
-                  )}
-                </div>
+                  </div>
+                )}
                 <div className="space-y-1">
                   <Label>Phone</Label>
                   <Input value={editForm.phone} onChange={(e) => updateEditField('phone', e.target.value)} />

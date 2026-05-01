@@ -7,16 +7,11 @@ import Navbar from '../../components/Navbar';
 
 const TOURNAMENT_CONFIG = {
   totalTeams: 4,
-  totalRounds: 3,
-  totalPlayersPerTeam: 14,
+  totalPlayersPerTeam: 12,
   basePrice: 5000,
-  totalBudget: 100000,
+  totalBudget: 500000,
   wicketkeeperMax: 2,
-  roundTargets: {
-    1: { total: 4, batters: 2, bowlers: 2 },
-    2: { total: 4 },
-    3: { total: 6 }
-  }
+  priorityCount: 24
 };
 
 const RESULT_DISPLAY_WINDOW_MS = 8000;
@@ -60,11 +55,6 @@ const getPlayerRoles = (player) => {
   return true;
 };
 
-const getAssignedRound = (player) => {
-  const value = Number(player.assignedRound ?? player.round ?? 1);
-  return Number.isFinite(value) ? value : 1;
-};
-
 export default function LiveCricketAuction() {
   const { currentUser, isAdmin } = useAuth();
   const [teams, setTeams] = useState([]);
@@ -84,7 +74,6 @@ export default function LiveCricketAuction() {
   const [showAssignmentResult, setShowAssignmentResult] = useState(false);
   const [assignmentResult, setAssignmentResult] = useState(null);
   const [isTimeExpired, setIsTimeExpired] = useState(false);
-  const [currentRound, setCurrentRound] = useState(1);
   const [teamsLoaded, setTeamsLoaded] = useState(false);
   const [playersLoaded, setPlayersLoaded] = useState(false);
   const [playerFilter, setPlayerFilter] = useState('all');
@@ -118,6 +107,25 @@ export default function LiveCricketAuction() {
     return null;
   };
 
+  const isPriorityPlayer = (player) => Boolean(player?.is_24 ?? player?.is24 ?? player?.is24Player);
+
+  const buildAuctionQueue = (eligiblePlayers) => {
+    const priorityPlayers = eligiblePlayers.filter(isPriorityPlayer);
+    const sortedPriority = [...priorityPlayers].sort((a, b) => {
+      const aTime = getTimestampMs(a.createdAt);
+      const bTime = getTimestampMs(b.createdAt);
+      if (Number.isFinite(aTime) && Number.isFinite(bTime)) return aTime - bTime;
+      const aName = (a.name || '').toLowerCase();
+      const bName = (b.name || '').toLowerCase();
+      return aName.localeCompare(bName);
+    });
+    const prioritySlice = sortedPriority.slice(0, TOURNAMENT_CONFIG.priorityCount);
+    const priorityIds = new Set(prioritySlice.map((player) => player.id));
+    const restPlayers = eligiblePlayers.filter((player) => !priorityIds.has(player.id));
+
+    return [...prioritySlice, ...shuffle(restPlayers)].map((player) => player.id);
+  };
+
   useEffect(() => {
     let unsubTeams;
     let unsubPlayers;
@@ -129,7 +137,7 @@ export default function LiveCricketAuction() {
       if (!isMounted) return;
       setTeams(teamsData.map(team => ({
         ...team,
-        totalBalance: team.totalBalance ?? TOURNAMENT_CONFIG.totalBudget
+        totalBalance: Math.max(team.totalBalance ?? 0, TOURNAMENT_CONFIG.totalBudget)
       })));
       setTeamsLoaded(true);
     });
@@ -181,7 +189,6 @@ export default function LiveCricketAuction() {
 
   useEffect(() => {
     if (!auctionState) return;
-    setCurrentRound(auctionState.round ?? 1);
     setCurrentPlayerIndex(Number.isFinite(auctionState.currentIndex) ? auctionState.currentIndex : 0);
     setHighestBid(auctionState.highestBid ?? 0);
     setHighestBidder(auctionState.highestBidder ?? '');
@@ -243,60 +250,27 @@ export default function LiveCricketAuction() {
 
     teams.forEach((team) => {
       const teamPlayers = allPlayers.filter(p => p.team === team.name);
-      const roundCounts = {
-        1: { total: 0, batters: 0, bowlers: 0 },
-        2: { total: 0, batters: 0, bowlers: 0 },
-        3: { total: 0, batters: 0, bowlers: 0 }
-      };
-
       let wicketkeepers = 0;
       let spent = 0;
 
       teamPlayers.forEach((player) => {
-        const round = getAssignedRound(player);
         const roles = getPlayerRoles(player);
         const price = Number(player.soldPrice ?? player.basePrice ?? TOURNAMENT_CONFIG.basePrice);
 
         if (roles.isWicketkeeper) wicketkeepers += 1;
-        if (roundCounts[round]) {
-          roundCounts[round].total += 1;
-          if (roles.isBatter) roundCounts[round].batters += 1;
-          if (roles.isBowler) roundCounts[round].bowlers += 1;
-        }
-
         spent += Number.isFinite(price) ? price : 0;
       });
 
       stats[team.name] = {
-        totalBudget: team.totalBalance ?? TOURNAMENT_CONFIG.totalBudget,
+        totalBudget: Math.max(team.totalBalance ?? 0, TOURNAMENT_CONFIG.totalBudget),
         spent,
         totalPicked: teamPlayers.length,
-        wicketkeepers,
-        roundCounts
+        wicketkeepers
       };
     });
 
     return stats;
   }, [teams, allPlayers]);
-
-  const isRoundCompleteForTeam = (teamName, round) => {
-    const roundTarget = TOURNAMENT_CONFIG.roundTargets[round];
-    const stats = teamStats[teamName];
-
-    if (!roundTarget || !stats) return false;
-
-    const roundStats = stats.roundCounts[round] || { total: 0, batters: 0, bowlers: 0 };
-
-    if (roundStats.total < roundTarget.total) return false;
-
-    if (round === 1) {
-      return roundStats.batters === roundTarget.batters && roundStats.bowlers === roundTarget.bowlers;
-    }
-
-    return true;
-  };
-
-  const canAdvanceRound = teams.length > 0 && teams.every((team) => isRoundCompleteForTeam(team.name, currentRound));
 
   const getNextAvailableIndex = (queue, startIndex, filter) => {
     if (!Array.isArray(queue)) return -1;
@@ -331,7 +305,7 @@ export default function LiveCricketAuction() {
 
     try {
       if (!auctionId) {
-        const queue = shuffle(eligiblePlayers.map(player => player.id));
+        const queue = buildAuctionQueue(eligiblePlayers);
         const nextIndex = getNextAvailableIndex(queue, 0, filterToUse);
         const currentPlayerId = nextIndex >= 0 ? queue[nextIndex] : null;
 
@@ -343,7 +317,6 @@ export default function LiveCricketAuction() {
         const auctionData = {
           status: 'active',
           isAuctionActive: true,
-          round: 1,
           playerFilter: filterToUse,
           playerQueue: queue,
           currentIndex: nextIndex,
@@ -366,7 +339,7 @@ export default function LiveCricketAuction() {
       const currentFilter = shouldRebuildQueue ? filterToUse : existingFilter;
       const queue = (auctionState?.playerQueue?.length && !shouldRebuildQueue)
         ? auctionState.playerQueue
-        : shuffle(eligiblePlayers.map(player => player.id));
+        : buildAuctionQueue(eligiblePlayers);
       const startIndex = Number.isFinite(auctionState?.currentIndex) ? auctionState.currentIndex : 0;
       let nextIndex = startIndex;
       let currentPlayerId = auctionState?.currentPlayerId;
@@ -423,47 +396,18 @@ export default function LiveCricketAuction() {
 
   const validateRoundConstraints = (teamName, player) => {
     const stats = teamStats[teamName];
-    const roundTarget = TOURNAMENT_CONFIG.roundTargets[currentRound];
 
-    if (!stats || !roundTarget) {
-      return { ok: false, reason: 'Team or round not found.' };
+    if (!stats) {
+      return { ok: false, reason: 'Team not found.' };
     }
 
     if (stats.totalPicked >= TOURNAMENT_CONFIG.totalPlayersPerTeam) {
-      return { ok: false, reason: 'Team already completed squad.' };
+      return { ok: false, reason: 'Team already completed auction slots.' };
     }
 
-    const roundStats = stats.roundCounts[currentRound] || { total: 0, batters: 0, bowlers: 0 };
     const roles = getPlayerRoles(player);
-
-    if (roundStats.total >= roundTarget.total) {
-      return { ok: false, reason: `Round ${currentRound} already complete for ${teamName}.` };
-    }
-
     if (roles.isWicketkeeper && stats.wicketkeepers >= TOURNAMENT_CONFIG.wicketkeeperMax) {
       return { ok: false, reason: 'Wicketkeeper limit reached (max 2).' };
-    }
-
-    if (currentRound === 1) {
-      const newBatters = roundStats.batters + (roles.isBatter ? 1 : 0);
-      const newBowlers = roundStats.bowlers + (roles.isBowler ? 1 : 0);
-      const newTotal = roundStats.total + 1;
-
-      if (newBatters > roundTarget.batters || newBowlers > roundTarget.bowlers) {
-        return { ok: false, reason: 'Round 1 requires exactly 2 batters and 2 bowlers.' };
-      }
-
-      const remainingSlots = roundTarget.total - newTotal;
-      const battersNeeded = roundTarget.batters - newBatters;
-      const bowlersNeeded = roundTarget.bowlers - newBowlers;
-
-      if (battersNeeded < 0 || bowlersNeeded < 0) {
-        return { ok: false, reason: 'Round 1 role limit exceeded.' };
-      }
-
-      if (battersNeeded + bowlersNeeded > remainingSlots) {
-        return { ok: false, reason: 'Round 1 picks must finish 2 batters and 2 bowlers.' };
-      }
     }
 
     return { ok: true };
@@ -495,40 +439,6 @@ export default function LiveCricketAuction() {
     }
 
     return { ok: true, maxAllowedBid: budgetInfo.maxAllowedBid };
-  };
-
-  const advanceRound = async () => {
-    if (!currentUser || !isAdmin) {
-      showToast('Only administrators can advance rounds.', 'error');
-      return;
-    }
-
-    if (!canAdvanceRound) {
-      showToast('All teams must complete current round requirements.', 'warning');
-      return;
-    }
-
-    if (!auctionId) {
-      showToast('Start the auction before advancing rounds.', 'error');
-      return;
-    }
-
-    const nextRound = Math.min(currentRound + 1, TOURNAMENT_CONFIG.totalRounds);
-
-    try {
-      await cricketAuctionService.update(auctionId, {
-        round: nextRound,
-        isAuctionActive: false,
-        highestBid: 0,
-        highestBidder: '',
-        timerEndsAt: null,
-        updatedAt: new Date()
-      });
-      setBidAmount('');
-      setSelectedTeam('');
-    } catch (error) {
-      showToast('Failed to advance round', 'error');
-    }
   };
 
   const confirmPlayerAssignment = async () => {
@@ -581,8 +491,7 @@ export default function LiveCricketAuction() {
     try {
       await cricketPlayersService.update(currentPlayer.id, {
         team: highestBidder,
-        soldPrice: highestBid,
-        assignedRound: currentRound
+        soldPrice: highestBid
       });
       const team = teams.find(t => t.name === highestBidder);
       if (team) {
@@ -590,7 +499,7 @@ export default function LiveCricketAuction() {
         const newSpent = (stats?.spent || 0) + highestBid;
         await cricketTeamsService.update(team.id, {
           spent: newSpent,
-          totalBalance: team.totalBalance ?? TOURNAMENT_CONFIG.totalBudget
+          totalBalance: Math.max(team.totalBalance ?? 0, TOURNAMENT_CONFIG.totalBudget)
         });
       }
 
@@ -610,16 +519,21 @@ export default function LiveCricketAuction() {
       }
 
       setTimeout(() => {
-        moveToNextPlayer();
+        moveToNextPlayer(true);
       }, 3000);
     } catch (error) {
       showToast('Failed to assign player', 'error');
     }
   };
 
-  const moveToNextPlayer = async () => {
+  const moveToNextPlayer = async (force = false) => {
     if (!auctionId || !auctionState?.playerQueue?.length) {
       showToast('No auction queue found.', 'warning');
+      return;
+    }
+
+    if (!force && (highestBid > 0 || highestBidder)) {
+      showToast('Cannot skip after bids placed. Confirm sale first.', 'warning');
       return;
     }
 
@@ -661,7 +575,7 @@ export default function LiveCricketAuction() {
       return;
     }
 
-    const queue = shuffle(eligiblePlayers.map(player => player.id));
+    const queue = buildAuctionQueue(eligiblePlayers);
     const nextIndex = getNextAvailableIndex(queue, 0, filterToUse);
     const currentPlayerId = nextIndex >= 0 ? queue[nextIndex] : null;
 
@@ -684,6 +598,73 @@ export default function LiveCricketAuction() {
       });
     } catch (error) {
       showToast('Failed to update player filter.', 'error');
+    }
+  };
+
+  const resetAuction = async () => {
+    if (!currentUser || !isAdmin) {
+      showToast('Only administrators can reset the auction.', 'error');
+      return;
+    }
+
+    const confirmed = confirm('Reset auction? This will unassign all players, clear bids, and stop the auction.');
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+
+      const playerUpdates = allPlayers.map((player) =>
+        cricketPlayersService.update(player.id, {
+          team: null,
+          soldPrice: null
+        })
+      );
+      await Promise.all(playerUpdates);
+
+      const teamUpdates = teams.map((team) =>
+        cricketTeamsService.update(team.id, {
+          spent: 0,
+          totalBalance: TOURNAMENT_CONFIG.totalBudget
+        })
+      );
+      await Promise.all(teamUpdates);
+
+      if (auctionId) {
+        await cricketAuctionService.clearBids(auctionId);
+        await cricketAuctionService.update(auctionId, {
+          status: 'idle',
+          isAuctionActive: false,
+          highestBid: 0,
+          highestBidder: '',
+          timerEndsAt: null,
+          currentIndex: 0,
+          currentPlayerId: null,
+          playerQueue: [],
+          playerFilter: 'all',
+          lastResult: null,
+          lastResultAt: null,
+          updatedAt: new Date()
+        });
+      }
+
+      setBidHistory([]);
+      setBidAmount('');
+      setSelectedTeam('');
+      setHighestBid(0);
+      setHighestBidder('');
+      setIsAuctionActive(false);
+      setTimerEndsAt(null);
+      setAuctionTimer(59);
+      setIsTimeExpired(false);
+      setShowAssignmentResult(false);
+      setAssignmentResult(null);
+      setPlayerFilter('all');
+
+      showToast('Auction reset complete.', 'success');
+    } catch (error) {
+      showToast('Failed to reset auction.', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -720,8 +701,7 @@ export default function LiveCricketAuction() {
       amount: bidAmountNum,
       playerId: currentPlayer.id,
       player: currentPlayer.name,
-      time: new Date().toLocaleTimeString(),
-      round: currentRound
+      time: new Date().toLocaleTimeString()
     };
 
     const auctionUpdates = {};
@@ -773,26 +753,7 @@ export default function LiveCricketAuction() {
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
               Live player auction for cricket teams. Bid for the best players and build your dream cricket squad.
             </p>
-            <div className="mt-6 flex flex-col items-center gap-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-gray-700 px-4 py-2 text-sm text-gray-300">
-                <span className="text-[#D0620D] font-semibold">Round {currentRound}</span>
-                <span>/ {TOURNAMENT_CONFIG.totalRounds}</span>
-              </div>
-              {isAdmin && (
-                <div className="flex flex-col items-center gap-2">
-                  <button
-                    onClick={advanceRound}
-                    disabled={currentRound >= TOURNAMENT_CONFIG.totalRounds || !canAdvanceRound}
-                    className="bg-gray-800 text-white px-5 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {currentRound >= TOURNAMENT_CONFIG.totalRounds ? 'Auction Complete' : 'Advance to Next Round'}
-                  </button>
-                  {!canAdvanceRound && currentRound < TOURNAMENT_CONFIG.totalRounds && (
-                    <p className="text-xs text-gray-400">All teams must finish round requirements.</p>
-                  )}
-                </div>
-              )}
-            </div>
+            <div className="mt-6" />
           </div>
         </div>
       </section>
@@ -818,6 +779,15 @@ export default function LiveCricketAuction() {
               </button>
             ))}
             <span className="text-xs text-gray-500">Active: {activeFilterLabel}</span>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={resetAuction}
+                className="ml-auto rounded-full border border-red-500 px-3 py-1 text-xs font-semibold text-red-400 hover:bg-red-500/10"
+              >
+                Reset Auction
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -902,21 +872,6 @@ export default function LiveCricketAuction() {
                     </div>
                   </div>
 
-                  <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900/40 p-4 text-sm text-gray-300">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="font-semibold text-white">Round {currentRound} rules:</span>
-                      {currentRound === 1 && (
-                        <span>Pick 2 Batters + 2 Bowlers. Wicketkeeper optional (max 2 total).</span>
-                      )}
-                      {currentRound === 2 && (
-                        <span>Pick 4 players (Batters/Bowlers mixed). Wicketkeeper allowed.</span>
-                      )}
-                      {currentRound === 3 && (
-                        <span>Pick 6 players (Batters/Bowlers mixed). Auction ends.</span>
-                      )}
-                    </div>
-                  </div>
-
                   {(!currentUser || !isAdmin) && (
                     <div className="mb-6 p-4 border border-yellow-600 bg-yellow-900 rounded-lg text-yellow-200 text-sm">
                       Only administrators can start auctions and place bids. Please log in as admin.
@@ -938,7 +893,6 @@ export default function LiveCricketAuction() {
                       <div className="space-y-3 mb-6">
                         <div className="flex items-center space-x-2">
                           <span className="bg-[#D0620D] px-3 py-1 rounded-full text-sm text-white">{currentPlayer.position}</span>
-                          <span className="bg-gray-800 px-3 py-1 rounded-full text-sm">Cat {currentPlayer.category}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="bg-gray-800 px-3 py-1 rounded-full text-sm">{currentPlayer.department}</span>
@@ -1040,7 +994,7 @@ export default function LiveCricketAuction() {
                               </button>
                               <button
                                 onClick={moveToNextPlayer}
-                                disabled={!currentUser || !isAdmin}
+                                disabled={!currentUser || !isAdmin || highestBid > 0 || !!highestBidder}
                                 className="bg-gray-700 text-white px-6 py-4 rounded-xl font-semibold text-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
                               >
                                 ⏭️ Skip Player
@@ -1109,11 +1063,6 @@ export default function LiveCricketAuction() {
                               <div className="text-base font-bold text-white">{stats?.wicketkeepers || 0}/{TOURNAMENT_CONFIG.wicketkeeperMax}</div>
                             </div>
                           </div>
-                          <div className="mt-2 text-[11px] text-gray-400 flex flex-wrap gap-2">
-                            <span>R1 {stats?.roundCounts?.[1]?.total || 0}/{TOURNAMENT_CONFIG.roundTargets[1].total}</span>
-                            <span>R2 {stats?.roundCounts?.[2]?.total || 0}/{TOURNAMENT_CONFIG.roundTargets[2].total}</span>
-                            <span>R3 {stats?.roundCounts?.[3]?.total || 0}/{TOURNAMENT_CONFIG.roundTargets[3].total}</span>
-                          </div>
                         </div>
                       );
                     })}
@@ -1137,7 +1086,7 @@ export default function LiveCricketAuction() {
                         <div key={i} className="flex justify-between items-center p-3 bg-gray-800 rounded-lg">
                           <div>
                             <div className="text-white font-medium">{bid.team}</div>
-                            <div className="text-xs text-gray-400">{bid.player} • R{bid.round} • {bidTime}</div>
+                            <div className="text-xs text-gray-400">{bid.player}{bidTime ? ` • ${bidTime}` : ''}</div>
                           </div>
                           <div className="text-[#D0620D] font-bold text-lg">৳{bid.amount.toLocaleString()}</div>
                         </div>

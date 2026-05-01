@@ -222,8 +222,6 @@ export default function CricketTeamManagement() {
         {[
           { label: 'Total Teams', value: teams.length, icon: Users, color: 'text-blue-500' },
           { label: 'Players Assigned', value: players.filter(p => p.team).length, icon: Trophy, color: 'text-green-500' },
-          { label: 'Category A', value: players.filter(p => p.category === 'A').length, icon: Trophy, color: 'text-orange-500' },
-          { label: 'Category B', value: players.filter(p => p.category === 'B').length, icon: Trophy, color: 'text-purple-500' },
         ].map((stat) => (
           <Card key={stat.label}>
             <CardContent className="pt-4">

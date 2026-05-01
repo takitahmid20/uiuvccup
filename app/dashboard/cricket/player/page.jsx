@@ -32,7 +32,7 @@ const CRICKET_POSITIONS = [
   'Wicket-Keeper Batsman',
 ];
 
-const REMARK_OPTIONS = ['Y', 'VY', 'P', 'VP', 'VYP', 'YP'];
+const DEFAULT_BASE_PRICE = 5000;
 
 export default function CricketPlayerManagement() {
   const [players, setPlayers] = useState([]);
@@ -44,7 +44,6 @@ export default function CricketPlayerManagement() {
   const [viewingPlayer, setViewingPlayer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('all');
-  const [remarksFilter, setRemarksFilter] = useState('all');
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [csvUploading, setCsvUploading] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
@@ -60,7 +59,7 @@ export default function CricketPlayerManagement() {
 
   useEffect(() => {
     filterPlayers();
-  }, [players, searchTerm, positionFilter, remarksFilter]);
+  }, [players, searchTerm, positionFilter]);
 
   const loadData = async () => {
     try {
@@ -90,9 +89,6 @@ export default function CricketPlayerManagement() {
     if (positionFilter !== 'all') {
       filtered = filtered.filter(p => p.position === positionFilter);
     }
-    if (remarksFilter !== 'all') {
-      filtered = filtered.filter(p => (p.category || '') === remarksFilter);
-    }
     setFilteredPlayers(filtered);
   };
 
@@ -100,6 +96,8 @@ export default function CricketPlayerManagement() {
     e.preventDefault();
     const f = new FormData(e.target);
     try {
+      const basePriceValue = f.get('basePrice');
+      const basePrice = basePriceValue ? parseInt(basePriceValue) : DEFAULT_BASE_PRICE;
       await cricketPlayersService.create({
         name: f.get('name'),
         uniId: f.get('uniId'),
@@ -107,9 +105,9 @@ export default function CricketPlayerManagement() {
         department: f.get('department') || '',
         age: f.get('age') ? parseInt(f.get('age')) : null,
         position: f.get('position'),
-        category: f.get('category') || '',
         jerseyNumber: f.get('jerseyNumber') ? parseInt(f.get('jerseyNumber')) : null,
-        basePrice: f.get('basePrice') ? parseInt(f.get('basePrice')) : null,
+        basePrice,
+        is_24: f.get('is24') === 'on',
         phone: f.get('phone') || '',
         email: f.get('email') || '',
         battingStyle: f.get('battingStyle') || '',
@@ -189,7 +187,10 @@ export default function CricketPlayerManagement() {
             phone: 'phone',
             lastenrolledtrimester: 'lastenrolledtrimester',
             playingrole: 'playingrole',
-            remarks: 'remarks'
+            baseprice: 'baseprice',
+            is24: 'is24',
+            top24: 'is24',
+            priority24: 'is24'
           };
 
           const headers = lines[0]
@@ -212,9 +213,15 @@ export default function CricketPlayerManagement() {
             return 'Batsman';
           };
 
-          const normalizeRemarks = (value) => (value || '')
-            .replace(/\s+/g, '')
-            .toUpperCase();
+          const parseBasePrice = (value) => {
+            const parsed = parseInt(value);
+            return Number.isFinite(parsed) ? parsed : DEFAULT_BASE_PRICE;
+          };
+
+          const parseIs24 = (value) => {
+            const raw = (value || '').trim().toLowerCase();
+            return ['1', 'true', 'yes', 'y'].includes(raw);
+          };
 
           const out = [];
           for (let i = 1; i < lines.length; i++) {
@@ -232,9 +239,9 @@ export default function CricketPlayerManagement() {
               department: '',
               age: null,
               position: normalizeRole(row.playingrole),
-              category: normalizeRemarks(row.remarks),
               jerseyNumber: null,
-              basePrice: null,
+              basePrice: parseBasePrice(row.baseprice),
+              is_24: parseIs24(row.is24),
               phone: row.phone || '',
               email: '',
               battingStyle: '',
@@ -343,6 +350,8 @@ export default function CricketPlayerManagement() {
     e.preventDefault();
     const f = new FormData(e.target);
     try {
+      const basePriceValue = f.get('basePrice');
+      const basePrice = basePriceValue ? parseInt(basePriceValue) : DEFAULT_BASE_PRICE;
       await cricketPlayersService.update(editingPlayer.id, {
         name: f.get('name'),
         uniId: f.get('uniId'),
@@ -350,10 +359,10 @@ export default function CricketPlayerManagement() {
         department: f.get('department') || '',
         age: f.get('age') ? parseInt(f.get('age')) : null,
         position: f.get('position'),
-        category: f.get('category') || '',
         jerseyNumber: f.get('jerseyNumber') ? parseInt(f.get('jerseyNumber')) : null,
-        basePrice: f.get('basePrice') ? parseInt(f.get('basePrice')) : null,
+        basePrice,
         soldPrice: f.get('soldPrice') ? parseInt(f.get('soldPrice')) : null,
+        is_24: f.get('is24') === 'on',
         phone: f.get('phone') || '',
         email: f.get('email') || '',
         battingStyle: f.get('battingStyle') || '',
@@ -398,7 +407,7 @@ export default function CricketPlayerManagement() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1 md:col-span-2">
               <Label>Search</Label>
               <div className="relative">
@@ -420,15 +429,6 @@ export default function CricketPlayerManagement() {
                 ))}
               </select>
             </div>
-            <div className="space-y-1">
-              <Label>Remarks</Label>
-              <select value={remarksFilter} onChange={(e) => setRemarksFilter(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
-                <option value="all">All</option>
-                {REMARK_OPTIONS.map((remark) => (
-                  <option key={remark} value={remark}>{remark}</option>
-                ))}
-              </select>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -441,7 +441,7 @@ export default function CricketPlayerManagement() {
               <TableRow>
                 <TableHead>Player</TableHead>
                 <TableHead>Position</TableHead>
-                <TableHead>Remarks</TableHead>
+                <TableHead>Top 24</TableHead>
                 <TableHead>Details</TableHead>
                 <TableHead>Team</TableHead>
                 <TableHead>Assign</TableHead>
@@ -490,7 +490,7 @@ export default function CricketPlayerManagement() {
                       <Badge variant="outline">{player.position}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{player.category || '—'}</Badge>
+                      <Badge variant="outline">{player.is_24 ? 'Yes' : 'No'}</Badge>
                     </TableCell>
                     <TableCell className="text-sm">
                       <div className="text-muted-foreground">{player.department} · Age {player.age}</div>
@@ -584,15 +584,14 @@ export default function CricketPlayerManagement() {
                   {CRICKET_POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
-              <div className="space-y-1"><Label>Remarks</Label>
-                <select name="category" style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
-                  <option value="">Select Remark</option>
-                  {REMARK_OPTIONS.map((remark) => (
-                    <option key={remark} value={remark}>{remark}</option>
-                  ))}
-                </select>
+              <div className="space-y-1">
+                <Label>Top 24 Queue</Label>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input type="checkbox" name="is24" className="h-4 w-4" />
+                  <span>Mark player in first 24 sequence</span>
+                </div>
               </div>
-              <div className="space-y-1"><Label>Base Price (৳)</Label><Input type="number" name="basePrice" min="0" placeholder="e.g. 5000" /></div>
+              <div className="space-y-1"><Label>Base Price (৳)</Label><Input type="number" name="basePrice" min="0" defaultValue={DEFAULT_BASE_PRICE} /></div>
               <div className="space-y-1"><Label>Phone</Label><Input type="tel" name="phone" /></div>
               <div className="space-y-1"><Label>Email</Label><Input type="email" name="email" /></div>
               <div className="space-y-1"><Label>Batting Style</Label>
@@ -646,15 +645,14 @@ export default function CricketPlayerManagement() {
                     {CRICKET_POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
-                <div className="space-y-1"><Label>Remarks</Label>
-                  <select name="category" defaultValue={editingPlayer.category || ''} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
-                    <option value="">Select Remark</option>
-                    {REMARK_OPTIONS.map((remark) => (
-                      <option key={remark} value={remark}>{remark}</option>
-                    ))}
-                  </select>
+                <div className="space-y-1">
+                  <Label>Top 24 Queue</Label>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input type="checkbox" name="is24" defaultChecked={Boolean(editingPlayer.is_24)} className="h-4 w-4" />
+                    <span>Mark player in first 24 sequence</span>
+                  </div>
                 </div>
-                <div className="space-y-1"><Label>Base Price (৳)</Label><Input type="number" name="basePrice" defaultValue={editingPlayer.basePrice || ''} min="0" /></div>
+                <div className="space-y-1"><Label>Base Price (৳)</Label><Input type="number" name="basePrice" defaultValue={editingPlayer.basePrice ?? DEFAULT_BASE_PRICE} min="0" /></div>
                 <div className="space-y-1">
                   <Label>Sold Price (৳)</Label>
                   <Input type="number" name="soldPrice" defaultValue={editingPlayer.soldPrice || ''} min="0" placeholder="Auction sale price" />
@@ -709,7 +707,7 @@ export default function CricketPlayerManagement() {
                 'Semester': viewingPlayer.semester,
                 'Age': viewingPlayer.age,
                 'Position': viewingPlayer.position,
-                'Remarks': viewingPlayer.category,
+                'Top 24 Queue': viewingPlayer.is_24 ? 'Yes' : 'No',
                 'Jersey Number': viewingPlayer.jerseyNumber,
                 'Base Price': viewingPlayer.basePrice ? `৳${viewingPlayer.basePrice.toLocaleString()}` : '—',
                 'Sold Price': viewingPlayer.soldPrice ? `৳${viewingPlayer.soldPrice.toLocaleString()}` : '—',
@@ -759,13 +757,13 @@ export default function CricketPlayerManagement() {
                 <h4 className="font-medium text-blue-900 mb-2">📋 CSV Format Requirements:</h4>
                 <div className="text-sm text-blue-800 space-y-1">
                   <p><strong>Required columns:</strong> SL, Student ID, StudentName, Playing Role</p>
-                  <p><strong>Optional columns:</strong> Phone, LastEnrolledTrimester, Remarks</p>
+                  <p><strong>Optional columns:</strong> Phone, LastEnrolledTrimester, BasePrice, Is24</p>
                   <p><strong>Delimiter:</strong> tab or comma</p>
                   <p><strong>Example:</strong></p>
                   <div className="bg-white border rounded p-2 mt-2 font-mono text-xs">
-                    SL,Student ID,StudentName,Phone,LastEnrolledTrimester,Playing Role,Remarks<br/>
-                    1,0112230633,Md.Hasin Al Jubaier Bhuiyan,8801934409370,Spring 2026,All,Y<br/>
-                    2,114222016,Md. Rashedul Islam Razu,8801984845679,Spring 2026,Batsman,VY
+                    SL,Student ID,StudentName,Phone,LastEnrolledTrimester,Playing Role,BasePrice,Is24<br/>
+                    1,0112230633,Md.Hasin Al Jubaier Bhuiyan,8801934409370,Spring 2026,All,5000,true<br/>
+                    2,114222016,Md. Rashedul Islam Razu,8801984845679,Spring 2026,Batsman,5000,false
                   </div>
                 </div>
               </div>
