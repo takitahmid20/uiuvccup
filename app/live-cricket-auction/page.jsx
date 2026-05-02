@@ -779,15 +779,6 @@ export default function LiveCricketAuction() {
               </button>
             ))}
             <span className="text-xs text-gray-500">Active: {activeFilterLabel}</span>
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={resetAuction}
-                className="ml-auto rounded-full border border-red-500 px-3 py-1 text-xs font-semibold text-red-400 hover:bg-red-500/10"
-              >
-                Reset Auction
-              </button>
-            )}
           </div>
 
           {loading ? (
