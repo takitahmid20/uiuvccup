@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '../../lib/utils';
 
 const topTabs = [
@@ -12,10 +12,18 @@ const topTabs = [
 ];
 
 export default function DashboardLayout({ children }) {
-  const { logout, currentUser } = useAuth();
+  const { logout, currentUser, isAdmin, isTeamOwner, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (loading || !currentUser) return;
+
+    if (!isAdmin) {
+      router.replace(isTeamOwner ? '/team-dashboard' : '/');
+    }
+  }, [loading, currentUser, isAdmin, isTeamOwner, router]);
 
   const handleLogout = async () => {
     try {
