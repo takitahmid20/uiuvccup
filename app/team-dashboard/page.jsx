@@ -324,7 +324,7 @@ export default function TeamOwnerDashboard() {
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center border border-gray-300">
                         <img
-                          src={`https://dsa.uiu.ac.bd/loan/api/photo/${encodeURIComponent(player.uniId || '')}`}
+                          src={`/api/student-avatar?std=${encodeURIComponent(player.uniId || '')}`}
                           alt={`${player.name} photo`}
                           className="w-full h-full object-cover"
                           onError={(e) => { e.currentTarget.style.display = 'none'; }}
@@ -395,7 +395,7 @@ export default function TeamOwnerDashboard() {
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center border border-gray-300">
                               <img
-                                src={`https://dsa.uiu.ac.bd/loan/api/photo/${encodeURIComponent(player.uniId || '')}`}
+                                src={`/api/student-avatar?std=${encodeURIComponent(player.uniId || '')}`}
                                 alt={`${player.name} photo`}
                                 className="w-full h-full object-cover"
                                 onError={(e) => { e.currentTarget.style.display = 'none'; }}

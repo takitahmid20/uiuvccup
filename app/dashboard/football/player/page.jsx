@@ -520,7 +520,7 @@ export default function PlayerManagement() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full overflow-hidden bg-muted border flex items-center justify-center shrink-0">
-                          <img src={`https://dsa.uiu.ac.bd/loan/api/photo/${encodeURIComponent(player.uniId || '')}`} alt={player.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          <img src={`/api/student-avatar?std=${encodeURIComponent(player.uniId || '')}`} alt={player.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                         </div>
                         <div>
                           <div className="text-sm font-medium">{player.name}</div>

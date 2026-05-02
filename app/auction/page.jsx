@@ -400,7 +400,7 @@ export default function Auction() {
                     <div>
                       <div className="w-64 h-64 bg-gray-800 rounded-2xl flex items-center justify-center border border-gray-700 mx-auto mb-6 overflow-hidden">
                         <img
-                          src={`https://dsa.uiu.ac.bd/loan/api/photo/${encodeURIComponent(currentPlayer.uniId || '')}`}
+                          src={`/api/student-avatar?std=${encodeURIComponent(currentPlayer.uniId || '')}`}
                           alt={`${currentPlayer.name} photo`}
                           className="w-full h-full object-cover"
                           onError={(e) => { e.currentTarget.style.display = 'none'; }}
@@ -630,7 +630,7 @@ export default function Auction() {
                 <div key={player.id} className="border border-gray-700 rounded-xl p-6 text-center hover:border-[#D0620D] transition-all duration-300" style={{ backgroundColor: '#0A0D13' }}>
                   <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden">
                     <img
-                      src={`https://dsa.uiu.ac.bd/loan/api/photo/${encodeURIComponent(player.uniId || '')}`}
+                      src={`/api/student-avatar?std=${encodeURIComponent(player.uniId || '')}`}
                       alt={`${player.name} photo`}
                       className="w-full h-full object-cover"
                       onError={(e) => { e.currentTarget.style.display = 'none'; }}

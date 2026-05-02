@@ -171,7 +171,7 @@ export default function TeamDetail({ params }) {
                   <div className="flex items-center mb-4">
                     <div className="w-12 h-12 bg-gray-800 rounded-full overflow-hidden flex items-center justify-center mr-4">
                       <img
-                        src={`https://dsa.uiu.ac.bd/loan/api/photo/${encodeURIComponent(player.uniId || '')}`}
+                        src={`/api/student-avatar?std=${encodeURIComponent(player.uniId || '')}`}
                         alt={`${player.name} photo`}
                         className="w-full h-full object-cover"
                         onError={(e) => { e.currentTarget.style.display = 'none'; }}

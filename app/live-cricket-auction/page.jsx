@@ -828,7 +828,13 @@ export default function LiveCricketAuction() {
           ) : !auctionState ? (
             <div className="text-center py-16">
               <div className="max-w-md mx-auto border border-gray-700 rounded-2xl p-8">
-                <div className="text-5xl mb-4">🏏</div>
+                <div className="mb-4 flex justify-center">
+                  <img
+                    src="/assets/uiuvccuplogo.png"
+                    alt="UIU VC Cup logo"
+                    className="w-16 h-16 rounded-full object-cover border border-gray-700"
+                  />
+                </div>
                 <h2 className="text-2xl font-bold text-white mb-2">Auction Not Started</h2>
                 <p className="text-gray-300">Admin can start the auction to begin live bidding.</p>
                 {isAdmin && (
@@ -837,7 +843,14 @@ export default function LiveCricketAuction() {
                     disabled={!currentUser}
                     className="mt-6 w-full bg-[#D0620D] text-white px-8 py-5 rounded-xl font-bold text-xl hover:bg-[#B8540B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                   >
-                    🏏 Start Auction
+                    <span className="inline-flex items-center gap-2">
+                      <img
+                        src="/assets/uiuvccuplogo.png"
+                        alt="UIU VC Cup"
+                        className="w-5 h-5 rounded-full object-cover border border-white/20"
+                      />
+                      <span>Start Auction</span>
+                    </span>
                   </button>
                 )}
               </div>
@@ -881,7 +894,15 @@ export default function LiveCricketAuction() {
                   <div className="grid md:grid-cols-2 gap-8">
                     <div>
                       <div className="w-64 h-64 bg-gray-800 rounded-2xl flex items-center justify-center border border-gray-700 mx-auto mb-6 overflow-hidden">
-                        <span className="text-6xl">🏏</span>
+                        <img
+                          src={`/api/student-avatar?std=${encodeURIComponent(currentPlayer?.uniId || '')}`}
+                          alt={`${currentPlayer?.name || 'Player'} avatar`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/assets/uiuvccuplogo.png';
+                          }}
+                        />
                       </div>
                     </div>
 
@@ -923,7 +944,14 @@ export default function LiveCricketAuction() {
                             disabled={!currentUser || !isAdmin}
                             className="w-full bg-[#D0620D] text-white px-8 py-5 rounded-xl font-bold text-xl hover:bg-[#B8540B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                           >
-                            🏏 Start Auction
+                            <span className="inline-flex items-center gap-2">
+                              <img
+                                src="/assets/uiuvccuplogo.png"
+                                alt="UIU VC Cup"
+                                className="w-5 h-5 rounded-full object-cover border border-white/20"
+                              />
+                              <span>Start Auction</span>
+                            </span>
                           </button>
                         ) : (
                           <div className="space-y-3">
