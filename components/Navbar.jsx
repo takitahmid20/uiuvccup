@@ -44,7 +44,7 @@ export default function Navbar() {
     { label: 'Home', href: '/' },
     { label: 'Teams', href: '/teams' },
     { label: 'Players', href: '/players' },
-    { label: 'Auction', href: '/auction' },
+    { label: 'Live Cricket Auction', href: '/live-cricket-auction' },
   ];
 
   const adminLinks = [

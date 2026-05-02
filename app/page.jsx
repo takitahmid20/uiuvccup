@@ -2,12 +2,13 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { teamsService, playersService } from '../lib/firebaseService';
+import { cricketTeamsService, cricketPlayersService } from '../lib/firebaseService';
 import Navbar from '../components/Navbar';
 
 export default function Home() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const normalizeTeamName = (value) => (value || '').trim().toLowerCase();
 
   // Load teams and calculate player counts
   useEffect(() => {
@@ -20,15 +21,19 @@ export default function Home() {
       
       // Load teams and players in parallel
       const [teamsData, playersData] = await Promise.all([
-        teamsService.getAll(),
-        playersService.getAll()
+        cricketTeamsService.getAll(),
+        cricketPlayersService.getAll()
       ]);
       
       // Calculate player count for each team
       const teamsWithPlayerCounts = teamsData.map(team => {
-        const playerCount = playersData.filter(player => player.team === team.name).length;
+        const teamName = team.name || team.teamName || '';
+        const playerCount = playersData.filter(player =>
+          normalizeTeamName(player.team) === normalizeTeamName(teamName)
+        ).length;
         return {
           ...team,
+          displayName: teamName,
           players: playerCount
         };
       });
@@ -97,7 +102,7 @@ export default function Home() {
               {/* Description */}
               <p className="text-base sm:text-lg md:text-xl text-gray-300 max-w-2xl leading-relaxed">
                 From the first ball to the final over. 🏏{' '}
-                <span className="text-[#D0620D] font-semibold">UIU VC Cup</span>.
+                <span className="text-[#D0620D] font-semibold">UIU VC Cup Cricket</span>.
               </p>
 
               {/* Action Buttons */}
@@ -125,8 +130,43 @@ export default function Home() {
 
               {/* Teams Grid - Scrollable on Mobile */}
               <div className="flex-1 overflow-x-auto">
-                <div className="flex h-full min-w-max">
-                  {/* ... rest of the teams grid code remains same ... */}
+                <div className="flex h-full min-w-max items-center gap-4 px-4 sm:px-6">
+                  {loading ? (
+                    Array.from({ length: 8 }).map((_, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-700 animate-pulse" />
+                        <div className="w-20 h-3 sm:w-24 sm:h-4 rounded bg-gray-700 animate-pulse" />
+                      </div>
+                    ))
+                  ) : teams.length > 0 ? (
+                    teams.map((team) => (
+                      <Link
+                        key={team.id}
+                        href={`/teams/${team.displayName.toLowerCase().replace(/\s+/g, '-')}`}
+                        className="flex items-center gap-2 pr-2 hover:opacity-90 transition-opacity"
+                      >
+                        {team.logo ? (
+                          <img
+                            src={team.logo}
+                            alt={`${team.displayName} logo`}
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-700"
+                          />
+                        ) : (
+                          <div
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-bold border border-gray-700"
+                            style={{ backgroundColor: team.color }}
+                          >
+                            {team.displayName.split(' ').map(word => word.charAt(0)).join('').toUpperCase()}
+                          </div>
+                        )}
+                        <div className="text-xs sm:text-sm text-gray-200 whitespace-nowrap">
+                          {team.displayName}
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="text-gray-400 text-sm">No teams available</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -159,14 +199,14 @@ export default function Home() {
                 </div>
               ))
             ) : teams.length > 0 ? (
-              teams.map((team, index) => (
-                <Link key={team.id} href={`/teams/${team.name.toLowerCase().replace(/\s+/g, '-')}`} className="block">
+              teams.map((team) => (
+                <Link key={team.id} href={`/teams/${team.displayName.toLowerCase().replace(/\s+/g, '-')}`} className="block">
                   <div className="rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 border border-gray-600 hover:border-[#D0620D] cursor-pointer" style={{ backgroundColor: '#0A0D13' }}>
                     <div className="flex items-center">
                       {team.logo ? (
                         <img 
                           src={team.logo} 
-                          alt={`${team.name} logo`}
+                          alt={`${team.displayName} logo`}
                           className="w-12 h-12 rounded-full object-cover"
                         />
                       ) : (
@@ -174,11 +214,11 @@ export default function Home() {
                           className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
                           style={{ backgroundColor: team.color }}
                         >
-                          {team.name.split(' ').map(word => word.charAt(0)).join('').toUpperCase()}
+                          {team.displayName.split(' ').map(word => word.charAt(0)).join('').toUpperCase()}
                         </div>
                       )}
                       <div className="ml-3">
-                        <h3 className="font-bold text-white">{team.name}</h3>
+                        <h3 className="font-bold text-white">{team.displayName}</h3>
                         <p className="text-sm text-gray-300">{team.players} Players</p>
                       </div>
                     </div>

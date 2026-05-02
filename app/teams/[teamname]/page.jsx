@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect, use } from 'react';
-import { teamsService, playersService } from '../../../lib/firebaseService';
+import { cricketTeamsService, cricketPlayersService } from '../../../lib/firebaseService';
 import Navbar from '../../../components/Navbar';
 
 export default function TeamDetail({ params }) {
@@ -10,6 +10,8 @@ export default function TeamDetail({ params }) {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const normalizeTeamName = (value) => (value || '').trim().toLowerCase();
+  const toSlug = (value) => normalizeTeamName(value).replace(/\s+/g, '-');
 
   useEffect(() => {
     loadTeamData();
@@ -22,19 +24,13 @@ export default function TeamDetail({ params }) {
       
       // Load teams and players
       const [teamsData, playersData] = await Promise.all([
-        teamsService.getAll(),
-        playersService.getAll()
+        cricketTeamsService.getAll(),
+        cricketPlayersService.getAll()
       ]);
       
       // Find the team by converting the URL param back to team name
-      const teamName = resolvedParams.teamname.split('-').map(word => 
-        word.charAt(0).toUpperCase() + word.slice(1)
-      ).join(' ');
-      
-      const foundTeam = teamsData.find(t => 
-        t.name.toLowerCase().replace(/\s+/g, '-') === resolvedParams.teamname ||
-        t.name.toLowerCase() === teamName.toLowerCase()
-      );
+      const slug = resolvedParams.teamname.toLowerCase();
+      const foundTeam = teamsData.find(t => toSlug(t.name || t.teamName) === slug);
       
       if (!foundTeam) {
         setError('Team not found');
@@ -42,7 +38,10 @@ export default function TeamDetail({ params }) {
       }
       
       // Get players for this team
-      const teamPlayers = playersData.filter(player => player.team === foundTeam.name);
+      const teamName = foundTeam.name || foundTeam.teamName || '';
+      const teamPlayers = playersData.filter(player =>
+        normalizeTeamName(player.team) === normalizeTeamName(teamName)
+      );
       
       setTeam(foundTeam);
       setPlayers(teamPlayers);
@@ -136,39 +135,27 @@ export default function TeamDetail({ params }) {
       {/* Team Stats */}
       <section className="py-16" style={{ backgroundColor: '#0A0D13' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center mb-16">
-            <div className="space-y-2">
-              <div className="text-4xl font-bold text-[#D0620D]">{players.length}</div>
-              <div className="text-gray-300">Total Players</div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-4xl font-bold text-[#D0620D]">
-                {players.filter(p => p.position === 'Forward').length}
-              </div>
-              <div className="text-gray-300">Forwards</div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-4xl font-bold text-[#D0620D]">
-                {players.filter(p => p.position === 'Midfielder').length}
-              </div>
-              <div className="text-gray-300">Midfielders</div>
-            </div>
-          </div>
+          {(() => {
+            const wicketKeeperPositions = ['Wicket-Keeper', 'Wicket-Keeper Batsman'];
+            const stats = [
+              { label: 'Total Players', value: players.length },
+              { label: 'Batsmen', value: players.filter(p => p.position === 'Batsman').length },
+              { label: 'Bowlers', value: players.filter(p => p.position === 'Bowler').length },
+              { label: 'All-Rounders', value: players.filter(p => p.position === 'All-Rounder').length },
+              { label: 'Wicket-Keepers', value: players.filter(p => wicketKeeperPositions.includes(p.position)).length }
+            ];
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-center mb-16">
-            <div className="space-y-2">
-              <div className="text-4xl font-bold text-[#D0620D]">
-                {players.filter(p => p.position === 'Defender').length}
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 text-center mb-16">
+                {stats.map((stat) => (
+                  <div key={stat.label} className="space-y-2">
+                    <div className="text-4xl font-bold text-[#D0620D]">{stat.value}</div>
+                    <div className="text-gray-300">{stat.label}</div>
+                  </div>
+                ))}
               </div>
-              <div className="text-gray-300">Defenders</div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-4xl font-bold text-[#D0620D]">
-                {players.filter(p => p.position === 'Goalkeeper').length}
-              </div>
-              <div className="text-gray-300">Goalkeepers</div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
       </section>
 
@@ -223,6 +210,30 @@ export default function TeamDetail({ params }) {
                       <span className="text-gray-400">Semester:</span>
                       <span className="text-white">{player.semester}</span>
                     </div>
+                    {player.battingStyle ? (
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Batting Style:</span>
+                        <span className="text-white">{player.battingStyle}</span>
+                      </div>
+                    ) : null}
+                    {player.bowlingStyle ? (
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Bowling Style:</span>
+                        <span className="text-white">{player.bowlingStyle}</span>
+                      </div>
+                    ) : null}
+                    {player.jerseyNumber ? (
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Jersey:</span>
+                        <span className="text-white">{player.jerseyNumber}</span>
+                      </div>
+                    ) : null}
+                    {player.basePrice ? (
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Base Price:</span>
+                        <span className="text-white">৳{Number(player.basePrice).toLocaleString()}</span>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ))}

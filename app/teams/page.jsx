@@ -1,12 +1,14 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { teamsService, playersService } from '../../lib/firebaseService';
+import { cricketTeamsService, cricketPlayersService } from '../../lib/firebaseService';
 import Navbar from '../../components/Navbar';
 
 export default function Teams() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const normalizeTeamName = (value) => (value || '').trim().toLowerCase();
 
   // Load teams and calculate player counts
   useEffect(() => {
@@ -19,15 +21,19 @@ export default function Teams() {
       
       // Load teams and players in parallel
       const [teamsData, playersData] = await Promise.all([
-        teamsService.getAll(),
-        playersService.getAll()
+        cricketTeamsService.getAll(),
+        cricketPlayersService.getAll()
       ]);
       
       // Calculate player count for each team
       const teamsWithPlayerCounts = teamsData.map(team => {
-        const playerCount = playersData.filter(player => player.team === team.name).length;
+        const teamName = team.name || team.teamName || '';
+        const playerCount = playersData.filter(player =>
+          normalizeTeamName(player.team) === normalizeTeamName(teamName)
+        ).length;
         return {
           ...team,
+          displayName: teamName,
           players: playerCount
         };
       });
@@ -54,7 +60,7 @@ export default function Teams() {
             <p className="text-lg sm:text-xl text-gray-300 max-w-3xl mx-auto px-4">
               {loading 
                 ? 'Loading tournament teams...' 
-                : `Meet the ${teams.length} competing teams in the UIU VC Cup Football Tournament. Skilled players ready to battle for the championship.`
+                : `Meet the ${teams.length} competing teams in the UIU VC Cup Cricket Tournament. Skilled players ready to battle for the championship.`
               }
             </p>
           </div>
@@ -78,14 +84,14 @@ export default function Teams() {
                 </div>
               ))
             ) : teams.length > 0 ? (
-              teams.map((team, index) => (
-                <Link key={team.id} href={`/teams/${team.name.toLowerCase().replace(/\s+/g, '-')}`} className="block">
+              teams.map((team) => (
+                <Link key={team.id} href={`/teams/${team.displayName.toLowerCase().replace(/\s+/g, '-')}`} className="block">
                   <div className="rounded-xl p-4 sm:p-6 md:p-8 border border-gray-600 hover:border-[#D0620D] transition-all duration-300 cursor-pointer hover:scale-105" style={{ backgroundColor: '#0A0D13' }}>
                     <div className="text-center">
                       {team.logo ? (
                         <img 
                           src={team.logo} 
-                          alt={`${team.name} logo`}
+                          alt={`${team.displayName} logo`}
                           className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full object-cover mx-auto mb-3 sm:mb-4"
                         />
                       ) : (
@@ -93,10 +99,10 @@ export default function Teams() {
                           className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl md:text-2xl mx-auto mb-3 sm:mb-4"
                           style={{ backgroundColor: team.color }}
                         >
-                          {team.name.split(' ').map(word => word.charAt(0)).join('').toUpperCase()}
+                          {team.displayName.split(' ').map(word => word.charAt(0)).join('').toUpperCase()}
                         </div>
                       )}
-                      <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-1 sm:mb-2">{team.name}</h3>
+                      <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-1 sm:mb-2">{team.displayName}</h3>
                       <p className="text-sm sm:text-base text-gray-300 mb-2 sm:mb-4">
                         Captain: {team.captain ? (
                           <span className="text-white font-medium">{team.captain}</span>
