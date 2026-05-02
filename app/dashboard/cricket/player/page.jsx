@@ -7,6 +7,13 @@ import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
 import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '../../../../components/ui/select';
 import { Separator } from '../../../../components/ui/separator';
 import {
   Dialog,
@@ -44,6 +51,8 @@ export default function CricketPlayerManagement() {
   const [viewingPlayer, setViewingPlayer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('all');
+  const [teamFilter, setTeamFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [csvUploading, setCsvUploading] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
@@ -59,7 +68,7 @@ export default function CricketPlayerManagement() {
 
   useEffect(() => {
     filterPlayers();
-  }, [players, searchTerm, positionFilter]);
+  }, [players, searchTerm, positionFilter, teamFilter, statusFilter]);
 
   const loadData = async () => {
     try {
@@ -78,6 +87,7 @@ export default function CricketPlayerManagement() {
   };
 
   const filterPlayers = () => {
+    const normalizeTeamName = (value) => (value || '').trim().toLowerCase();
     let filtered = players;
     if (searchTerm) {
       filtered = filtered.filter(p =>
@@ -88,6 +98,14 @@ export default function CricketPlayerManagement() {
     }
     if (positionFilter !== 'all') {
       filtered = filtered.filter(p => p.position === positionFilter);
+    }
+    if (teamFilter !== 'all') {
+      filtered = filtered.filter(p =>
+        normalizeTeamName(p.team) === normalizeTeamName(teamFilter)
+      );
+    }
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(p => statusFilter === 'assigned' ? !!p.team : !p.team);
     }
     setFilteredPlayers(filtered);
   };
@@ -407,27 +425,63 @@ export default function CricketPlayerManagement() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1 md:col-span-2">
+          <div className="flex flex-nowrap items-end gap-4 overflow-x-auto">
+            <div className="space-y-1 min-w-[260px]">
               <Label>Search</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  className="pl-9"
+                  className="h-[30px] pl-9"
                   placeholder="Name, ID, department..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-[180px]">
               <Label>Position</Label>
-              <select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} style={{ height: '30px' }} className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none">
-                <option value="all">All Positions</option>
-                {CRICKET_POSITIONS.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+              <Select value={positionFilter} onValueChange={setPositionFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All Positions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Positions</SelectItem>
+                  {CRICKET_POSITIONS.map((p) => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 min-w-[200px]">
+              <Label>Team</Label>
+              <Select value={teamFilter} onValueChange={setTeamFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All Teams" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Teams</SelectItem>
+                  {teams.map((team) => {
+                    const name = team.name || team.teamName;
+                    if (!name) return null;
+                    return (
+                      <SelectItem key={team.id} value={name}>{name}</SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 min-w-[170px]">
+              <Label>Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="assigned">Assigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>

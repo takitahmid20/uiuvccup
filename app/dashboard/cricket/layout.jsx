@@ -7,7 +7,7 @@ import { cn } from '../../../lib/utils';
 const tabs = [
   { label: 'Team Management', href: '/dashboard/cricket/team', icon: Users },
   { label: 'Player Management', href: '/dashboard/cricket/player', icon: UserCheck },
-  { label: 'Auction', href: '/cricket-auction', icon: Gavel },
+  { label: 'Auction', href: '/live-cricket-auction', icon: Gavel },
 ];
 
 export default function CricketLayout({ children }) {
@@ -39,6 +39,8 @@ export default function CricketLayout({ children }) {
             <Link
               key={href}
               href={href}
+              target={href === '/live-cricket-auction' ? '_blank' : undefined}
+              rel={href === '/live-cricket-auction' ? 'noopener noreferrer' : undefined}
               className={cn(
                 'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors',
                 active

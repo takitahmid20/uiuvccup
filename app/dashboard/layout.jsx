@@ -103,12 +103,14 @@ export default function DashboardLayout({ children }) {
                 { label: '⚽ Football – Auction', href: '/auction' },
                 { label: '🏏 Cricket – Teams', href: '/dashboard/cricket/team' },
                 { label: '🏏 Cricket – Players', href: '/dashboard/cricket/player' },
-                { label: '🏏 Cricket – Auction', href: '/cricket-auction' },
+                { label: '🏏 Cricket – Auction', href: '/live-cricket-auction' },
               ].map(({ label, href }) => (
                 <Link
                   key={href}
                   href={href}
                   onClick={() => setMobileMenuOpen(false)}
+                  target={href === '/live-cricket-auction' ? '_blank' : undefined}
+                  rel={href === '/live-cricket-auction' ? 'noopener noreferrer' : undefined}
                   className="block px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:text-[#D0620D] hover:bg-orange-50 transition-colors"
                 >
                   {label}

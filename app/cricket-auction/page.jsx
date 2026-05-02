@@ -7,7 +7,7 @@ import Navbar from '../../components/Navbar';
 
 const TOURNAMENT_CONFIG = {
   totalTeams: 4,
-  totalPlayersPerTeam: 12,
+  totalPlayersPerTeam: 16,
   basePrice: 5000,
   totalBudget: 500000,
   wicketkeeperMax: 2,
