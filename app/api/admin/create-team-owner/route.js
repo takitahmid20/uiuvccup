@@ -65,9 +65,26 @@ export async function POST(request) {
 
     return NextResponse.json({ uid: userRecord.uid, email, password });
   } catch (error) {
-    if (error?.code === 'auth/email-already-exists') {
-      return NextResponse.json({ error: 'Email already exists.' }, { status: 409 });
+    const errorCode = error?.code || error?.name || 'unknown_error';
+    const errorMessage = error?.message || 'Unknown error.';
+
+    console.error('Create team owner failed:', {
+      code: errorCode,
+      message: errorMessage,
+      stack: error?.stack
+    });
+
+    if (errorCode === 'auth/email-already-exists') {
+      return NextResponse.json({
+        error: 'Email already exists.',
+        code: errorCode
+      }, { status: 409 });
     }
-    return NextResponse.json({ error: 'Failed to create team owner.' }, { status: 500 });
+
+    return NextResponse.json({
+      error: 'Failed to create team owner.',
+      code: errorCode,
+      message: errorMessage
+    }, { status: 500 });
   }
 }
